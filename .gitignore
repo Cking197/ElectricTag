@@ -2,6 +2,7 @@
 #
 # Get latest from https://github.com/github/gitignore/blob/master/Unity.gitignore
 #
+.utmp/
 /[Ll]ibrary/
 /[Tt]emp/
 /[Oo]bj/
@@ -9,6 +10,9 @@
 /[Bb]uilds/
 /[Ll]ogs/
 /[Mm]emoryCaptures/
+/[Uu]ser[Ss]ettings/
+*.log
+/[Rr]ecordings/
 
 # Never ignore Asset meta data
 !/[Aa]ssets/**/*.meta
@@ -57,6 +61,9 @@ sysinfo.txt
 # Builds
 *.apk
 *.unitypackage
+*.unitypackage
+*.unitypackage.meta
+*.app
 
 # Crashlytics generated file
 crashlytics-build.properties
