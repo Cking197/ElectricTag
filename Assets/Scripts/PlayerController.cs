@@ -1,7 +1,19 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class PlayerController : MonoBehaviour
 {
+    [Header("Input")]
+    public string moveActionName = "Move";
+    public string fastStepActionName = "FastStepToggle";
+    private PlayerInput _playerInput;
+    private InputAction _moveAction;
+    private InputAction _fastStepAction;
+
+    [Header("Spawn")]
+    public float leftSpawnX = -2.4f;
+    public float rightSpawnX = 2.4f;
+
     [Header("Movement")]
     public float stepDistance = 0.16f;
     public float fullStickThreshold = 0.85f;
@@ -9,12 +21,49 @@ public class PlayerController : MonoBehaviour
     public float slowSpeed = 0.9f;
     public float moderateSpeed = 1.4f;
     public float fastSpeed = 2.2f;
-    public string fastStepButton = "FastStep";
+
 
     private bool _isStepping;
     private bool _fastLatched;
     private Vector3 _stepTarget;
     private float _stepSpeed;
+
+    void Awake()
+    {
+        _playerInput = GetComponent<PlayerInput>();
+    }
+
+    void OnEnable()
+    {
+        if (_playerInput != null)
+        {
+            _moveAction = _playerInput.actions[moveActionName];
+            _fastStepAction = _playerInput.actions[fastStepActionName];
+        }
+    }
+
+    void Start()
+    {
+        if (_playerInput == null)
+        {
+            _playerInput = GetComponent<PlayerInput>();
+        }
+
+        if (_playerInput != null)
+        {
+            float spawnX = _playerInput.playerIndex == 0 ? leftSpawnX : rightSpawnX;
+            Vector3 position = transform.position;
+            float halfHeight = 0.0f;
+            Collider2D collider2D = GetComponent<Collider2D>();
+            if (collider2D != null)
+            {
+                halfHeight = collider2D.bounds.size.y * 0.5f;
+            }
+
+
+            transform.position = new Vector3(spawnX, halfHeight, position.z);
+        }
+    }
 
     void Update()
     {
@@ -34,7 +83,12 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        float axis = Input.GetAxis("Horizontal");
+        if (_moveAction == null)
+        {
+            return;
+        }
+
+        float axis = _moveAction.ReadValue<Vector2>().x;
         float absAxis = Mathf.Abs(axis);
 
         if (absAxis < deadzone)
@@ -46,7 +100,7 @@ public class PlayerController : MonoBehaviour
         float direction = Mathf.Sign(axis);
 
         bool isFullStick = absAxis >= fullStickThreshold;
-        if (!_fastLatched && !string.IsNullOrEmpty(fastStepButton) && Input.GetButton(fastStepButton))
+        if (!_fastLatched && _fastStepAction != null && _fastStepAction.IsPressed())
         {
             _fastLatched = true;
         }
