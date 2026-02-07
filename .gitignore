@@ -13,6 +13,7 @@
 /[Uu]ser[Ss]ettings/
 *.log
 /[Rr]ecordings/
+/TeamEvals/
 
 # Never ignore Asset meta data
 !/[Aa]ssets/**/*.meta
