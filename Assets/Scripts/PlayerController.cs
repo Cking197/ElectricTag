@@ -27,10 +27,16 @@ public class PlayerController : MonoBehaviour
     private bool _fastLatched;
     private Vector3 _stepTarget;
     private float _stepSpeed;
+    private Rigidbody2D _rb;
+    private Vector3 _spawnPosition;
+    private int _facingDirection;
+    private SwordAttack sword;
 
     void Awake()
     {
         _playerInput = GetComponent<PlayerInput>();
+        sword = GetComponentInChildren<SwordAttack>();
+        _rb = GetComponent<Rigidbody2D>();
     }
 
     void OnEnable()
@@ -51,6 +57,8 @@ public class PlayerController : MonoBehaviour
 
         if (_playerInput != null)
         {
+
+            _facingDirection = _playerInput.playerIndex == 0 ? 1 : -1;
             float spawnX = _playerInput.playerIndex == 0 ? leftSpawnX : rightSpawnX;
             Vector3 position = transform.position;
             float halfHeight = 0.0f;
@@ -59,9 +67,9 @@ public class PlayerController : MonoBehaviour
             {
                 halfHeight = collider2D.bounds.size.y * 0.5f;
             }
-
-
-            transform.position = new Vector3(spawnX, halfHeight, position.z);
+            
+            _spawnPosition = new Vector3(spawnX, halfHeight, position.z);
+            ResetPlayer();
         }
     }
 
@@ -109,5 +117,41 @@ public class PlayerController : MonoBehaviour
         _stepTarget = transform.position + new Vector3(stepAmount, 0.0f, 0.0f);
         _stepSpeed = _fastLatched ? fastSpeed : (isFullStick ? moderateSpeed : slowSpeed);
         _isStepping = true;
+    }
+
+    public void OnAttack(InputAction.CallbackContext context)
+    {
+        if (!context.performed) return;
+        if (sword == null) return;
+
+        Debug.Log($"Attack fired from {gameObject.name}");
+
+        sword.StartAttack();
+    }
+
+    private void SetFacingDirection(int direction)
+    {
+        Vector3 scale = transform.localScale;
+        scale.x = Mathf.Abs(scale.x) * direction;
+        transform.localScale = scale;
+    }
+
+    public void ResetPlayer()
+    {
+        // Stop movement
+        _isStepping = false;
+        _fastLatched = false;
+
+        if (_rb != null)
+        {
+            _rb.linearVelocity = Vector2.zero;
+            _rb.angularVelocity = 0f;
+        }
+
+        // Reset position
+        transform.position = _spawnPosition;
+
+        // Reset facing
+        SetFacingDirection(_facingDirection);
     }
 }
