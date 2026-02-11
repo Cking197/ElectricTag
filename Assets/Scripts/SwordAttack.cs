@@ -4,74 +4,81 @@ using System.Collections;
 public class SwordAttack : MonoBehaviour
 {
     [Header("Positions")]
-    public Vector2 restLocalPosition = new Vector2(0.6f, 0f);
-    public Vector2 thrustLocalPosition = new Vector2(1.2f, 0f);
+    public Vector2 restLocalPosition = new Vector2(0.6f, 0f);   // Default sword position
+    public Vector2 thrustLocalPosition = new Vector2(1.2f, 0f); // Sword fully extended position
 
     [Header("Timing")]
-    public float thrustOutTime = 0.08f;
-    public float thrustBackTime = 0.06f;
+    public float thrustOutTime = 0.08f;   // Time to extend sword
+    public float thrustBackTime = 0.06f;  // Time to retract sword
 
-    private bool isAttacking;
-    private BoxCollider2D hitbox;
-    private PlayerController owner;
+    private bool _isAttacking;
+    private BoxCollider2D _hitbox;
+    private PlayerController _owner;
 
     void Awake()
     {
-        hitbox = GetComponent<BoxCollider2D>();
-        hitbox.enabled = false;
+        _hitbox = GetComponent<BoxCollider2D>();
+        _hitbox.enabled = false;
 
-        owner = transform.root.GetComponent<PlayerController>();
+        _owner = transform.root.GetComponent<PlayerController>();
         transform.localPosition = restLocalPosition;
     }
 
+    // Start a sword attack if not already attacking
     public void StartAttack()
     {
-        if (isAttacking) return;
+        if (_isAttacking) return;
         StartCoroutine(ThrustRoutine());
     }
 
+    // Handles sword thrust and retraction
     IEnumerator ThrustRoutine()
     {
-        isAttacking = true;
+        _isAttacking = true;
 
-        // Thrust
-        hitbox.enabled = true;
+        // Extend sword and enable hitbox
+        _hitbox.enabled = true;
         yield return MoveSword(restLocalPosition, thrustLocalPosition, thrustOutTime);
 
-        // Retract
-        hitbox.enabled = false;
+        // Retract sword and disable hitbox
+        _hitbox.enabled = false;
         yield return MoveSword(thrustLocalPosition, restLocalPosition, thrustBackTime);
 
-        isAttacking = false;
+        _isAttacking = false;
     }
 
+    // Smoothly move sword between positions
     IEnumerator MoveSword(Vector2 from, Vector2 to, float duration)
     {
         float t = 0f;
-
         while (t < duration)
         {
             t += Time.deltaTime;
-            float lerp = t / duration;
-            transform.localPosition = Vector2.Lerp(from, to, lerp);
+            transform.localPosition = Vector2.Lerp(from, to, t / duration);
             yield return null;
         }
-
         transform.localPosition = to;
     }
 
+    // Detect hits on opponent
     void OnTriggerEnter2D(Collider2D other)
     {
-        if (!hitbox.enabled) return;
+        if (!_hitbox.enabled) return;
 
-        PlayerController victim =
-            other.GetComponentInParent<PlayerController>();
+        // Ignore if the opponent is the owner or invalid
+        PlayerController victim = other.GetComponentInParent<PlayerController>();
+        if (victim == null || victim == _owner) return;
 
-        if (victim == null) return;
-        if (victim == owner) return;
+        // Ignore hits if the bout is in a false start
+        if (GameManager.Instance != null && GameManager.Instance.currentState != GameManager.BoutState.Fencing)
+        {
+            return;
+        }
 
-        hitbox.enabled = false;
-        GameManager.Instance.OnPlayerHit(owner, victim);
-        Debug.Log($"{owner.name} hit {other.name}");
+        _hitbox.enabled = false;
+
+        // Notify game manager of a valid hit
+        GameManager.Instance.OnPlayerHit(_owner);
+        Debug.Log($"{_owner.name} hit {other.name}");
     }
 }
