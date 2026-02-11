@@ -4,8 +4,8 @@ using UnityEngine.InputSystem;
 public class PlayerController : MonoBehaviour
 {
     [Header("Input")]
-    public string moveActionName = "Move";
-    public string fastStepActionName = "FastStepToggle";
+    public string moveActionName = "Move";           // Name of movement action
+    public string fastStepActionName = "FastStepToggle"; // Name of fast step toggle
     private PlayerInput _playerInput;
     private InputAction _moveAction;
     private InputAction _fastStepAction;
@@ -13,6 +13,9 @@ public class PlayerController : MonoBehaviour
     [Header("Spawn")]
     public float leftSpawnX = -2.4f;
     public float rightSpawnX = 2.4f;
+    public float spawnY = 0.5f;
+    private Vector3 _spawnPosition;
+    private int _facingDirection;
 
     [Header("Movement")]
     public float stepDistance = 0.16f;
@@ -21,14 +24,13 @@ public class PlayerController : MonoBehaviour
     public float slowSpeed = 0.9f;
     public float moderateSpeed = 1.4f;
     public float fastSpeed = 2.2f;
+
     private bool _isStepping;
     private bool _fastLatched;
     private Vector3 _stepTarget;
     private float _stepSpeed;
-    
+
     private Rigidbody2D _rb;
-    private Vector3 _spawnPosition;
-    private int _facingDirection;
     private SwordAttack sword;
 
     void Awake()
@@ -50,85 +52,77 @@ public class PlayerController : MonoBehaviour
     void Start()
     {
         if (_playerInput == null)
-        {
             _playerInput = GetComponent<PlayerInput>();
-        }
 
         if (_playerInput != null)
         {
-
             _facingDirection = _playerInput.playerIndex == 0 ? 1 : -1;
-            gameObject.name = "Player"+ (_playerInput.playerIndex+1).ToString();
+            gameObject.name = "Player" + (_playerInput.playerIndex + 1).ToString();
+
             float spawnX = _playerInput.playerIndex == 0 ? leftSpawnX : rightSpawnX;
-            Vector3 position = transform.position;
-            float halfHeight = 0.0f;
-            Collider2D collider2D = GetComponent<Collider2D>();
-            if (collider2D != null)
-            {
-                halfHeight = collider2D.bounds.size.y * 0.5f;
-            }
-            
-            _spawnPosition = new Vector3(spawnX, halfHeight, position.z);
+            _spawnPosition = new Vector3(spawnX, spawnY, transform.position.z);
+
             ResetPlayer();
         }
+
+        GameManager.Instance.RegisterPlayer(this);
     }
 
     void Update()
     {
+        // Handle ongoing step movement
         if (_isStepping)
         {
-            transform.position = Vector3.MoveTowards(
-                transform.position,
-                _stepTarget,
-                _stepSpeed * Time.deltaTime
-            );
+            transform.position = Vector3.MoveTowards(transform.position, _stepTarget, _stepSpeed * Time.deltaTime);
 
             if (transform.position == _stepTarget)
-            {
                 _isStepping = false;
-            }
 
             return;
         }
 
         if (_moveAction == null)
-        {
             return;
-        }
 
         float axis = _moveAction.ReadValue<Vector2>().x;
         float absAxis = Mathf.Abs(axis);
 
+        // Ignore small input
         if (absAxis < deadzone)
         {
             _fastLatched = false;
             return;
         }
 
-        float direction = Mathf.Sign(axis);
-
-        bool isFullStick = absAxis >= fullStickThreshold;
-        if (!_fastLatched && _fastStepAction != null && _fastStepAction.IsPressed())
+        // Flag false start if moving during countdown, but still allow movement
+        if (GameManager.Instance.currentState == GameManager.BoutState.Countdown)
         {
-            _fastLatched = true;
+            GameManager.Instance.OnEarlyMovement(this);
         }
 
-        float stepAmount = direction * stepDistance;
-        _stepTarget = transform.position + new Vector3(stepAmount, 0.0f, 0.0f);
+        float direction = Mathf.Sign(axis);
+        bool isFullStick = absAxis >= fullStickThreshold;
+
+        if (!_fastLatched && _fastStepAction != null && _fastStepAction.IsPressed())
+            _fastLatched = true;
+
+        // Calculate step target and speed
+        _stepTarget = transform.position + new Vector3(direction * stepDistance, 0f, 0f);
         _stepSpeed = _fastLatched ? fastSpeed : (isFullStick ? moderateSpeed : slowSpeed);
         _isStepping = true;
     }
 
+    // Trigger sword attack
     public void OnAttack(InputAction.CallbackContext context)
     {
-        if (!context.performed) return;
-        if (sword == null) return;
+        if (!context.performed || sword == null)
+            return;
 
         Debug.Log($"Attack fired from {gameObject.name}");
-
         sword.StartAttack();
     }
 
+    // Adjust player facing
     private void SetFacingDirection(int direction)
     {
         Vector3 scale = transform.localScale;
@@ -136,9 +130,9 @@ public class PlayerController : MonoBehaviour
         transform.localScale = scale;
     }
 
+    // Reset position, facing, and movement state
     public void ResetPlayer()
     {
-        // Stop movement
         _isStepping = false;
         _fastLatched = false;
 
@@ -148,10 +142,7 @@ public class PlayerController : MonoBehaviour
             _rb.angularVelocity = 0f;
         }
 
-        // Reset position
         transform.position = _spawnPosition;
-
-        // Reset facing
         SetFacingDirection(_facingDirection);
     }
 }
