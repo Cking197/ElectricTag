@@ -21,12 +21,11 @@ public class PlayerController : MonoBehaviour
     public float slowSpeed = 0.9f;
     public float moderateSpeed = 1.4f;
     public float fastSpeed = 2.2f;
-
-
     private bool _isStepping;
     private bool _fastLatched;
     private Vector3 _stepTarget;
     private float _stepSpeed;
+    
     private Rigidbody2D _rb;
     private Vector3 _spawnPosition;
     private int _facingDirection;
@@ -59,6 +58,7 @@ public class PlayerController : MonoBehaviour
         {
 
             _facingDirection = _playerInput.playerIndex == 0 ? 1 : -1;
+            gameObject.name = "Player"+ (_playerInput.playerIndex+1).ToString();
             float spawnX = _playerInput.playerIndex == 0 ? leftSpawnX : rightSpawnX;
             Vector3 position = transform.position;
             float halfHeight = 0.0f;

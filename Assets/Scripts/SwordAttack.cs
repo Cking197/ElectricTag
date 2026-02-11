@@ -1,5 +1,7 @@
 using UnityEngine;
 using System.Collections;
+using UnityEngine.Events;
+using UnityEngine.Serialization;
 
 public class SwordAttack : MonoBehaviour
 {
@@ -11,38 +13,38 @@ public class SwordAttack : MonoBehaviour
     public float thrustOutTime = 0.08f;
     public float thrustBackTime = 0.06f;
 
-    private bool isAttacking;
-    private BoxCollider2D hitbox;
-    private PlayerController owner;
+    private bool _isAttacking;
+    private BoxCollider2D _hitbox;
+    private PlayerController _owner;
 
     void Awake()
     {
-        hitbox = GetComponent<BoxCollider2D>();
-        hitbox.enabled = false;
+        _hitbox = GetComponent<BoxCollider2D>();
+        _hitbox.enabled = false;
 
-        owner = transform.root.GetComponent<PlayerController>();
+        _owner = transform.root.GetComponent<PlayerController>();
         transform.localPosition = restLocalPosition;
     }
 
     public void StartAttack()
     {
-        if (isAttacking) return;
+        if (_isAttacking) return;
         StartCoroutine(ThrustRoutine());
     }
 
     IEnumerator ThrustRoutine()
     {
-        isAttacking = true;
+        _isAttacking = true;
 
         // Thrust
-        hitbox.enabled = true;
+        _hitbox.enabled = true;
         yield return MoveSword(restLocalPosition, thrustLocalPosition, thrustOutTime);
 
         // Retract
-        hitbox.enabled = false;
+        _hitbox.enabled = false;
         yield return MoveSword(thrustLocalPosition, restLocalPosition, thrustBackTime);
 
-        isAttacking = false;
+        _isAttacking = false;
     }
 
     IEnumerator MoveSword(Vector2 from, Vector2 to, float duration)
@@ -62,16 +64,16 @@ public class SwordAttack : MonoBehaviour
 
     void OnTriggerEnter2D(Collider2D other)
     {
-        if (!hitbox.enabled) return;
+        if (!_hitbox.enabled) return;
 
         PlayerController victim =
             other.GetComponentInParent<PlayerController>();
 
         if (victim == null) return;
-        if (victim == owner) return;
+        if (victim == _owner) return;
 
-        hitbox.enabled = false;
-        GameManager.Instance.OnPlayerHit(owner, victim);
-        Debug.Log($"{owner.name} hit {other.name}");
+        _hitbox.enabled = false;
+        GameManager.Instance.OnPlayerHit(_owner, victim);
+        Debug.Log($"{_owner.name} hit {other.name}");
     }
 }
