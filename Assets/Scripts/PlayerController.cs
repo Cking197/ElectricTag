@@ -1,6 +1,6 @@
+using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.InputSystem;
-
 public class PlayerController : MonoBehaviour
 {
     [Header("Input")]
@@ -74,6 +74,11 @@ public class PlayerController : MonoBehaviour
         }
 
         GameManager.Instance.RegisterPlayer(this);
+        var targetGroup = FindAnyObjectByType<CinemachineTargetGroup>();
+        if (targetGroup != null)
+        {
+            targetGroup.AddMember(transform, 1f, 0.5f);
+        }
     }
 
     void Update()
