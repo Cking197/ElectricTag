@@ -17,6 +17,10 @@ public class GameManager : MonoBehaviour
     private int _player2Score;
     private List<PlayerController> _registeredPlayers = new List<PlayerController>();
 
+    [Header("Movement Lock")]
+    public float resetMovementLockSeconds = 0.1f;
+    private float _movementLockUntil;
+
     public enum BoutState
     {
         WaitingForPlayers,
@@ -58,7 +62,15 @@ public class GameManager : MonoBehaviour
     // Determines if players are allowed to move
     public bool CanPlayersMove()
     {
+        if (Time.time < _movementLockUntil)
+            return false;
+
         return currentState == BoutState.Countdown || currentState == BoutState.Fencing;
+    }
+
+    public void LockMovement(float seconds)
+    {
+        _movementLockUntil = Mathf.Max(_movementLockUntil, Time.time + seconds);
     }
 
     // Called when a player moves during countdown (potential false start)
@@ -201,9 +213,13 @@ public class GameManager : MonoBehaviour
     // Resets all players to spawn positions
     void ResetAllPlayers()
     {
+        LockMovement(resetMovementLockSeconds);
+
         foreach (var player in _registeredPlayers)
         {
             player.ResetPlayer();
         }
+
+        LockMovement(resetMovementLockSeconds);
     }
 }

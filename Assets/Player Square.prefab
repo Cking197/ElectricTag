@@ -112,12 +112,17 @@ MonoBehaviour:
   fastStepActionName: FastStepToggle
   leftSpawnX: -2.4
   rightSpawnX: 2.4
+  spawnY: 0.5
   stepDistance: 0.16
+  dashDistance: 1
+  stepCooldownSeconds: 0.12
+  dashCooldownSeconds: 1
+  minStepDurationSeconds: 0.08
   fullStickThreshold: 0.85
   deadzone: 0.2
-  slowSpeed: 0.9
-  moderateSpeed: 1.4
-  fastSpeed: 2.2
+  moderateSpeed: 1
+  fastSpeed: 5
+  dashSpeed: 3.2
 --- !u!212 &5166759941191950690
 SpriteRenderer:
   serializedVersion: 2
@@ -451,21 +456,3 @@ MonoBehaviour:
   thrustLocalPosition: {x: 2.5, y: 0.15}
   thrustOutTime: 0.06
   thrustBackTime: 0.35
-  onHit:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 0}
-        m_TargetAssemblyTypeName: 
-        m_MethodName: 
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: 
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-  onMiss:
-    m_PersistentCalls:
-      m_Calls: []

@@ -1,6 +1,6 @@
+using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.InputSystem;
-
 public class PlayerController : MonoBehaviour
 {
     [Header("Input")]
@@ -19,24 +19,32 @@ public class PlayerController : MonoBehaviour
 
     [Header("Movement")]
     public float stepDistance = 0.16f;
+    public float fastStepDistance = 0.24f;
+    public float dashDistance = 1f;
+    public float stepCooldownSeconds = 0.12f;
+    public float dashCooldownSeconds = 0.2f;
+    public float minStepDurationSeconds = 0.08f;
+    public float fastStepMinDurationSeconds = 0.1f;
     public float fullStickThreshold = 0.85f;
     public float deadzone = 0.2f;
-    public float slowSpeed = 0.9f;
     public float moderateSpeed = 1.4f;
     public float fastSpeed = 2.2f;
+    public float dashSpeed = 5f;
 
     private bool _isStepping;
-    private bool _fastLatched;
     private Vector3 _stepTarget;
     private float _stepSpeed;
+    private float _nextStepTime;
+    private float _nextDashTime;
+    private bool _dashHeld;
 
     private Rigidbody2D _rb;
-    private SwordAttack sword;
+    private SwordAttack _sword;
 
     void Awake()
     {
         _playerInput = GetComponent<PlayerInput>();
-        sword = GetComponentInChildren<SwordAttack>();
+        _sword = GetComponentInChildren<SwordAttack>();
         _rb = GetComponent<Rigidbody2D>();
     }
 
@@ -66,18 +74,20 @@ public class PlayerController : MonoBehaviour
         }
 
         GameManager.Instance.RegisterPlayer(this);
+        var targetGroup = FindAnyObjectByType<CinemachineTargetGroup>();
+        if (targetGroup != null)
+        {
+            targetGroup.AddMember(transform, 1f, 0.5f);
+        }
     }
 
     void Update()
     {
-        // Handle ongoing step movement
-        if (_isStepping)
+        GameManager gameManager = GameManager.Instance;
+
+        if (gameManager != null && !gameManager.CanPlayersMove())
         {
-            transform.position = Vector3.MoveTowards(transform.position, _stepTarget, _stepSpeed * Time.deltaTime);
-
-            if (transform.position == _stepTarget)
-                _isStepping = false;
-
+            _isStepping = false;
             return;
         }
 
@@ -87,39 +97,83 @@ public class PlayerController : MonoBehaviour
         float axis = _moveAction.ReadValue<Vector2>().x;
         float absAxis = Mathf.Abs(axis);
 
+        TryHandleDash(absAxis, axis);
+
+        if (UpdateStepMovement())
+            return;
+
+        if (Time.time < _nextStepTime)
+            return;
+
         // Ignore small input
         if (absAxis < deadzone)
-        {
-            _fastLatched = false;
             return;
-        }
 
         // Flag false start if moving during countdown, but still allow movement
-        if (GameManager.Instance.currentState == GameManager.BoutState.Countdown)
-        {
-            GameManager.Instance.OnEarlyMovement(this);
-        }
+        if (gameManager != null && gameManager.currentState == GameManager.BoutState.Countdown)
+            gameManager.OnEarlyMovement(this);
 
         float direction = Mathf.Sign(axis);
         bool isFullStick = absAxis >= fullStickThreshold;
 
-        if (!_fastLatched && _fastStepAction != null && _fastStepAction.IsPressed())
-            _fastLatched = true;
+        StartStep(direction, isFullStick);
+    }
 
-        // Calculate step target and speed
-        _stepTarget = transform.position + new Vector3(direction * stepDistance, 0f, 0f);
-        _stepSpeed = _fastLatched ? fastSpeed : (isFullStick ? moderateSpeed : slowSpeed);
+    private void TryHandleDash(float absAxis, float axis)
+    {
+        if (_fastStepAction == null)
+            return;
+
+        bool dashPressed = _fastStepAction.IsPressed();
+
+        if (!dashPressed)
+            _dashHeld = false;
+
+        if (dashPressed && !_dashHeld && Time.time >= _nextDashTime)
+        {
+            float dashDirection = absAxis >= deadzone ? Mathf.Sign(axis) : _facingDirection;
+            _stepTarget = transform.position + new Vector3(dashDirection * dashDistance, 0f, 0f);
+            _stepSpeed = Mathf.Max(dashSpeed, dashDistance / minStepDurationSeconds);
+            _isStepping = true;
+            _nextDashTime = Time.time + dashCooldownSeconds;
+            _dashHeld = true;
+        }
+    }
+
+    private bool UpdateStepMovement()
+    {
+        if (!_isStepping)
+            return false;
+
+        transform.position = Vector3.MoveTowards(transform.position, _stepTarget, _stepSpeed * Time.deltaTime);
+
+        if (transform.position == _stepTarget)
+            _isStepping = false;
+
+        return true;
+    }
+
+    private void StartStep(float direction, bool isFullStick)
+    {
+        float distance = isFullStick ? fastStepDistance : stepDistance;
+        _stepTarget = transform.position + new Vector3(direction * distance, 0f, 0f);
+        _stepSpeed = isFullStick ? fastSpeed : moderateSpeed;
+
+        if (isFullStick)
+            _stepSpeed = Mathf.Min(_stepSpeed, distance / fastStepMinDurationSeconds);
+
         _isStepping = true;
+        _nextStepTime = Time.time + stepCooldownSeconds;
     }
 
     // Trigger sword attack
     public void OnAttack(InputAction.CallbackContext context)
     {
-        if (!context.performed || sword == null)
+        if (!context.performed || _sword == null)
             return;
 
         Debug.Log($"Attack fired from {gameObject.name}");
-        sword.StartAttack();
+        _sword.StartAttack();
     }
 
     // Adjust player facing
@@ -134,7 +188,7 @@ public class PlayerController : MonoBehaviour
     public void ResetPlayer()
     {
         _isStepping = false;
-        _fastLatched = false;
+        _dashHeld = false;
 
         if (_rb != null)
         {
