@@ -15,6 +15,8 @@ public class SwordAttack : MonoBehaviour
     private BoxCollider2D _hitbox;
     private PlayerController _owner;
 
+    public bool IsAttacking => _isAttacking;
+
     void Awake()
     {
         _hitbox = GetComponent<BoxCollider2D>();
@@ -29,6 +31,25 @@ public class SwordAttack : MonoBehaviour
     {
         if (_isAttacking) return;
         StartCoroutine(ThrustRoutine());
+    }
+
+    // Cancel an ongoing attack and reset sword
+    public void CancelAttack()
+    {
+        if (!_isAttacking)
+            return;
+        
+        // Stop the thrust
+        StopAllCoroutines();
+        
+        // Reset state
+        _isAttacking = false;
+        _hitbox.enabled = false;
+        
+        // Snap sword back to rest position
+        transform.localPosition = restLocalPosition;
+        
+        Debug.Log($"{_owner.name}'s attack was cancelled");
     }
 
     // Handles sword thrust and retraction
@@ -77,7 +98,15 @@ public class SwordAttack : MonoBehaviour
 
         _hitbox.enabled = false;
 
-        // Notify game manager of a valid hit
+        // Check if other is parrying
+        if (victim.IsInParryWindow())
+        {
+            Debug.Log($"{victim.name} PARRIED {_owner.name}'s attack!");
+
+            GameManager.Instance.OnSuccessfulParry(_owner, victim);
+            return;
+        }
+
         GameManager.Instance.OnPlayerHit(_owner);
         Debug.Log($"{_owner.name} hit {other.name}");
     }

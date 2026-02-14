@@ -72,10 +72,6 @@ MonoBehaviour:
     m_ActionId: 052d2c98-cbac-4e46-aa59-223024ddee03
     m_ActionName: 'InPlay/FastStepToggle[/XInputControllerWindows/leftStickPress]'
   - m_PersistentCalls:
-      m_Calls: []
-    m_ActionId: b6cb9b61-76a4-4bc9-9e1c-02a997df03ff
-    m_ActionName: Other/New action
-  - m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 434624531981960423}
         m_TargetAssemblyTypeName: PlayerController, Assembly-CSharp
@@ -91,6 +87,22 @@ MonoBehaviour:
         m_CallState: 2
     m_ActionId: 23b90b15-3814-4441-a880-1fcedb46c2eb
     m_ActionName: InPlay/Attack
+  - m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 434624531981960423}
+        m_TargetAssemblyTypeName: PlayerController, Assembly-CSharp
+        m_MethodName: OnParry
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+    m_ActionId: e9968feb-d861-4531-8b99-67f97566b410
+    m_ActionName: InPlay/Parry
   m_NeverAutoSwitchControlSchemes: 0
   m_DefaultControlScheme: 
   m_DefaultActionMap: InPlay
@@ -110,19 +122,24 @@ MonoBehaviour:
   m_EditorClassIdentifier: '::'
   moveActionName: Move
   fastStepActionName: FastStepToggle
+  parryActionName: Parry
   leftSpawnX: -2.4
   rightSpawnX: 2.4
   spawnY: 0.5
   stepDistance: 0.16
+  fastStepDistance: 0.24
   dashDistance: 1
   stepCooldownSeconds: 0.12
   dashCooldownSeconds: 1
   minStepDurationSeconds: 0.08
+  fastStepMinDurationSeconds: 0.1
   fullStickThreshold: 0.85
   deadzone: 0.2
   moderateSpeed: 1
   fastSpeed: 5
   dashSpeed: 3.2
+  parryWindowSeconds: 1
+  parryCooldownSeconds: 0.4
 --- !u!212 &5166759941191950690
 SpriteRenderer:
   serializedVersion: 2

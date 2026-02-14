@@ -21,6 +21,9 @@ public class GameManager : MonoBehaviour
     public float resetMovementLockSeconds = 0.1f;
     private float _movementLockUntil;
 
+    [Header("Combat")]
+    public float parryStunDuration = 0.3f;
+
     public enum BoutState
     {
         WaitingForPlayers,
@@ -173,6 +176,18 @@ public class GameManager : MonoBehaviour
         _haltRoutine = StartCoroutine(HaltAndScoreRoutine(attacker));
     }
 
+    // Called when a player successfully parries an attack
+    public void OnSuccessfulParry(PlayerController attacker, PlayerController parrier)
+    {
+        if (currentState != BoutState.Fencing || _falseStartTriggered || _haltRoutine != null)
+            return;
+
+        Debug.Log($"{parrier.name} parried {attacker.name} - stunning attacker");
+        
+        attacker.ApplyStun(parryStunDuration);
+        attacker.CancelAttack();
+    }
+
     // Handles halt, scoring, and reset after a touch
     IEnumerator HaltAndScoreRoutine(PlayerController attacker)
     {
@@ -182,6 +197,16 @@ public class GameManager : MonoBehaviour
         {
             countdownText.gameObject.SetActive(true);
             countdownText.text = "HALT";
+        }
+
+        PlayerController hitPlayer = _registeredPlayers.Find(p => p != attacker);
+        if (hitPlayer != null)
+        {
+            SpriteRenderer[] allSprites = hitPlayer.GetComponentsInChildren<SpriteRenderer>();
+            foreach (SpriteRenderer sprite in allSprites)
+            {
+                sprite.enabled = false;
+            }
         }
 
         yield return new WaitForSeconds(0.9f);
