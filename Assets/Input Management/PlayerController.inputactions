@@ -32,6 +32,15 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
+                },
+                {
+                    "name": "Parry",
+                    "type": "Button",
+                    "id": "cd8645c8-a0b3-4109-9ec6-0b9f4e6ecde2",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -49,7 +58,7 @@
                 {
                     "name": "",
                     "id": "57468709-b7f8-4971-881b-c71f8df03b97",
-                    "path": "<Gamepad>/leftStickPress",
+                    "path": "<Gamepad>/leftShoulder",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
@@ -67,6 +76,17 @@
                     "action": "Attack",
                     "isComposite": false,
                     "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "218c8da0-8c8e-4ba4-817c-6a6febe1727b",
+                    "path": "<Gamepad>/rightShoulder",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Parry",
+                    "isComposite": false,
+                    "isPartOfComposite": false
                 }
             ]
         },
@@ -78,7 +98,7 @@
                     "name": "New action",
                     "type": "Button",
                     "id": "b6cb9b61-76a4-4bc9-9e1c-02a997df03ff",
-                    "expectedControlType": "Button",
+                    "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
