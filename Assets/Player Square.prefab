@@ -101,8 +101,12 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-    m_ActionId: e9968feb-d861-4531-8b99-67f97566b410
+    m_ActionId: 0348550f-66e1-4853-b99d-71b1ef7c400a
     m_ActionName: InPlay/Parry
+  - m_PersistentCalls:
+      m_Calls: []
+    m_ActionId: b6cb9b61-76a4-4bc9-9e1c-02a997df03ff
+    m_ActionName: Other/New action
   m_NeverAutoSwitchControlSchemes: 0
   m_DefaultControlScheme: 
   m_DefaultActionMap: InPlay
