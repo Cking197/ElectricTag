@@ -1,0 +1,35 @@
+1. Result of last sprint
+
+Added:
+Countdown with false starts
+Attacking
+Parrying
+Stun, on parry
+Points
+Dynamic camera
+Strong dash (more of a rework of existing movement)
+Reset on hit, attacked player disappears on hit
+
+2. Dates of last sprint standups
+
+N/A: Met in class during dead periods(Monday had times with no testers, Wednesday self testing, used time for standup), tracked progress on Discord server
+
+3. Playtesting results (triaged feedback list)
+
+Tighten controls: Take dash off of stick click
+Make movement more accurate to fencing, not necessarily a big change but should feel more responsive and fast
+Add in an indicator of when a player is hit such that it feels more responsive
+Add complexity within the core loop and gameplay identity as opposed to outside of it (other characters for example)
+Exchanges should be interpretable (parry, right-of-way, movement)
+Add in lunges, backsteps, parries (parries already done)
+
+4. Task items for next sprint with effort estimates
+
+Implement all core actions within the game. Includes lunging, backstepping, refining the parry, and sword positioning. (Low-med as most are done)
+Refine the existing parry system after a playtest. Currently it is untested. (Med)
+Polish the movement to feel more similar to fencing. (Med)
+Prototype sword position, exact details post-playtest (Med-high, with conceptual work)
+Polish the different game-states. Includes making the start text and false start feel more intuitive, adding a winner/loser, and potentially having a start screen. (Low-med)
+Make the user lose if they step off the strip (Low)
+Work on the right-of-way mechanic. (High)
+Potentially start to look for visual/audio assets to use in the project if we are ahead of schedule.

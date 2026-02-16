@@ -1,0 +1,33 @@
+One pager that states:
+1. Result of last sprint
+
+Set up Git repo
+Add in player objects
+Implement movement of squares
+Set up controller interaction
+Implement multiplayer control
+
+2. Dates of last sprint standups
+
+Wednesday 2/4 after class
+Saturday 2/7 2 PM
+
+3. Playtesting results (triaged feedback list)
+N/A
+
+4. Task items for next sprint with effort estimates
+
+Parry system (Medium)
+Parry state
+Visual indication
+The actual action of parrying
+Rules of the game/system (Easier)
+Initiate game with 2 players
+After contact, reset positions
+Countdown to start of touch
+Contact scores points, ends touch
+Stepping off strip gives point to opponent
+Start of Right-of-Way implementation (Medium, depending on total progress)
+Moving forward to take/retain right of way
+Attacking and missing loses right of way
+2 attacks_> right of way gets point

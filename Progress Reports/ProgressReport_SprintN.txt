@@ -1,0 +1,18 @@
+One pager that states:
+1. Result of last sprint
+
+
+
+
+2. Dates of last sprint standups
+
+
+
+
+3. Playtesting results (triaged feedback list)
+
+
+4. Task items for next sprint with effort estimates
+
+
+
