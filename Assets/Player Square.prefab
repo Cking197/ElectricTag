@@ -88,6 +88,10 @@ MonoBehaviour:
     m_ActionId: 23b90b15-3814-4441-a880-1fcedb46c2eb
     m_ActionName: InPlay/Attack
   - m_PersistentCalls:
+      m_Calls: []
+    m_ActionId: b6cb9b61-76a4-4bc9-9e1c-02a997df03ff
+    m_ActionName: Other/New action
+  - m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 434624531981960423}
         m_TargetAssemblyTypeName: PlayerController, Assembly-CSharp
@@ -101,12 +105,8 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-    m_ActionId: 0348550f-66e1-4853-b99d-71b1ef7c400a
-    m_ActionName: InPlay/Parry
-  - m_PersistentCalls:
-      m_Calls: []
-    m_ActionId: b6cb9b61-76a4-4bc9-9e1c-02a997df03ff
-    m_ActionName: Other/New action
+    m_ActionId: cd8645c8-a0b3-4109-9ec6-0b9f4e6ecde2
+    m_ActionName: 'InPlay/Parry[/XInputControllerWindows/rightShoulder,/XInputControllerWindows1/rightShoulder]'
   m_NeverAutoSwitchControlSchemes: 0
   m_DefaultControlScheme: 
   m_DefaultActionMap: InPlay
