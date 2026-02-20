@@ -142,8 +142,8 @@ MonoBehaviour:
   moderateSpeed: 1
   fastSpeed: 5
   dashSpeed: 3.2
-  parryWindowSeconds: 1
-  parryCooldownSeconds: 0.4
+  parryWindowSeconds: 0.5
+  parryCooldownSeconds: 1.5
 --- !u!212 &5166759941191950690
 SpriteRenderer:
   serializedVersion: 2
