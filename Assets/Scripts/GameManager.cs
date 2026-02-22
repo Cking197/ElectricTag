@@ -6,23 +6,28 @@ using UnityEngine.Serialization;
 
 public class GameManager : MonoBehaviour
 {
-    [Header("References")]
-    public static GameManager Instance;               // Singleton reference
-    public TextMeshProUGUI player1ScoreUI;           // Player 1 score display
-    public TextMeshProUGUI player2ScoreUI;           // Player 2 score display
-    public TextMeshProUGUI countdownText;            // Countdown or referee messages
+    [Header("References")] public static GameManager Instance; // Singleton reference
+    public TextMeshProUGUI player1ScoreUI; // Player 1 score display
+    public TextMeshProUGUI player2ScoreUI; // Player 2 score display
+    public TextMeshProUGUI countdownText; // Countdown or referee messages
 
-    [Header("Player State")]
-    private int _player1Score;
+    [Header("Player State")] private int _player1Score;
     private int _player2Score;
     private List<PlayerController> _registeredPlayers = new List<PlayerController>();
 
-    [Header("Movement Lock")]
-    public float resetMovementLockSeconds = 0.1f;
+    [Header("Movement Lock")] public float resetMovementLockSeconds = 0.1f;
     private float _movementLockUntil;
 
-    [Header("Combat")]
-    public float parryStunDuration = 0.3f;
+    [Header("Combat")] public float parryStunDuration = 0.3f;
+
+    [Header("Right Of Way")] public float initiativeDuration = 0.35f;
+
+    private PlayerController _rightOfWayHolder;
+    private Coroutine _rightOfWayExpireRoutine;
+
+    private List<PlayerController> _pendingHitAttackers = new List<PlayerController>();
+    private Coroutine _hitResolutionRoutine;
+    public float simultaneousHitWindow = 0.12f;
 
     public enum BoutState
     {
@@ -32,6 +37,7 @@ public class GameManager : MonoBehaviour
         Fencing,
         Resolving
     }
+
     public BoutState currentState = BoutState.WaitingForPlayers;
 
     // Coroutines
@@ -149,6 +155,7 @@ public class GameManager : MonoBehaviour
             countdownText.gameObject.SetActive(true);
             countdownText.text = "EN GARDE";
         }
+
         yield return new WaitForSeconds(0.9f);
 
         if (countdownText != null)
@@ -167,13 +174,49 @@ public class GameManager : MonoBehaviour
         _countdownRoutine = null;
     }
 
+    private IEnumerator ResolveHitsAfterWindow()
+    {
+        yield return new WaitForSeconds(simultaneousHitWindow);
+
+        PlayerController scorer = null;
+
+        if (_pendingHitAttackers.Count == 1)
+        {
+            scorer = _pendingHitAttackers[0];
+        }
+        else if (_pendingHitAttackers.Count >= 2)
+        {
+            // If both hit → RoW decides
+            if (_rightOfWayHolder != null &&
+                _pendingHitAttackers.Contains(_rightOfWayHolder))
+            {
+                scorer = _rightOfWayHolder;
+            }
+            else
+            {
+                // No active RoW → no score (the simultaneous scenario)
+                scorer = null;
+            }
+        }
+
+        _pendingHitAttackers.Clear();
+        _hitResolutionRoutine = null;
+
+        if (scorer != null)
+            _haltRoutine = StartCoroutine(HaltAndScoreRoutine(scorer));
+    }
+
     // Called when a player scores
     public void OnPlayerHit(PlayerController attacker)
     {
         if (currentState != BoutState.Fencing || _falseStartTriggered || _haltRoutine != null)
             return;
 
-        _haltRoutine = StartCoroutine(HaltAndScoreRoutine(attacker));
+        if (!_pendingHitAttackers.Contains(attacker))
+            _pendingHitAttackers.Add(attacker);
+
+        if (_hitResolutionRoutine == null)
+            _hitResolutionRoutine = StartCoroutine(ResolveHitsAfterWindow());
     }
 
     // Called when a player successfully parries an attack
@@ -183,9 +226,10 @@ public class GameManager : MonoBehaviour
             return;
 
         Debug.Log($"{parrier.name} parried {attacker.name} - stunning attacker");
-        
+
         attacker.ApplyStun(parryStunDuration);
         attacker.CancelAttack();
+        AssignRightOfWay(parrier);
     }
 
     // Handles halt, scoring, and reset after a touch
@@ -197,16 +241,6 @@ public class GameManager : MonoBehaviour
         {
             countdownText.gameObject.SetActive(true);
             countdownText.text = "HALT";
-        }
-
-        PlayerController hitPlayer = _registeredPlayers.Find(p => p != attacker);
-        if (hitPlayer != null)
-        {
-            SpriteRenderer[] allSprites = hitPlayer.GetComponentsInChildren<SpriteRenderer>();
-            foreach (SpriteRenderer sprite in allSprites)
-            {
-                sprite.enabled = false;
-            }
         }
 
         yield return new WaitForSeconds(0.9f);
@@ -240,11 +274,106 @@ public class GameManager : MonoBehaviour
     {
         LockMovement(resetMovementLockSeconds);
 
+        ClearRightOfWay();
+
         foreach (var player in _registeredPlayers)
         {
             player.ResetPlayer();
         }
 
         LockMovement(resetMovementLockSeconds);
+    }
+
+    public bool HasActiveRightOfWay(PlayerController player)
+    {
+        return _rightOfWayHolder == player;
+    }
+
+    private void ClearRightOfWay()
+    {
+        if (_rightOfWayHolder != null)
+            _rightOfWayHolder.NotifyRightOfWayChanged(false);
+
+        _rightOfWayHolder = null;
+
+        if (_rightOfWayExpireRoutine != null)
+        {
+            StopCoroutine(_rightOfWayExpireRoutine);
+            _rightOfWayExpireRoutine = null;
+        }
+    }
+
+    private void AssignRightOfWay(PlayerController player)
+    {
+        if (_rightOfWayHolder == player)
+        {
+            RestartRightOfWayTimer();
+            return;
+        }
+
+        if (_rightOfWayHolder != null)
+            _rightOfWayHolder.NotifyRightOfWayChanged(false);
+
+        _rightOfWayHolder = player;
+
+        if (_rightOfWayHolder != null)
+            _rightOfWayHolder.NotifyRightOfWayChanged(true);
+
+        RestartRightOfWayTimer();
+    }
+
+    private void RestartRightOfWayTimer()
+    {
+        if (_rightOfWayExpireRoutine != null)
+            StopCoroutine(_rightOfWayExpireRoutine);
+
+        _rightOfWayExpireRoutine = StartCoroutine(RightOfWayExpireRoutine());
+    }
+
+    private IEnumerator RightOfWayExpireRoutine()
+    {
+        yield return new WaitForSeconds(initiativeDuration);
+
+        ClearRightOfWay();
+    }
+
+    public void OnOffensiveAction(PlayerController player)
+    {
+        if (currentState != BoutState.Fencing)
+            return;
+
+        if (_rightOfWayHolder == null)
+        {
+            // No active RoW, assign to player
+            AssignRightOfWay(player);
+        }
+        else if (_rightOfWayHolder == player)
+        {
+            // Player already has RoW, refresh timer
+            RestartRightOfWayTimer();
+        }
+        // else opponent has RoW → do nothing
+    }
+
+    public void OnRetreat(PlayerController player)
+    {
+        if (currentState != BoutState.Fencing)
+            return;
+
+        if (_rightOfWayHolder == player)
+        {
+            ClearRightOfWay();
+        }
+    }
+
+    public void OnAttackMissed(PlayerController player)
+    {
+        if (currentState != BoutState.Fencing)
+            return;
+
+        if (_rightOfWayHolder == player)
+        {
+            ClearRightOfWay();
+        }
     }
 }

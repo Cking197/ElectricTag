@@ -1,10 +1,10 @@
 using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.InputSystem;
+
 public class PlayerController : MonoBehaviour
 {
-    [Header("Input")]
-    public string moveActionName = "Move";           // Name of movement action
+    [Header("Input")] public string moveActionName = "Move"; // Name of movement action
     public string fastStepActionName = "FastStepToggle"; // Name of fast step toggle
     public string parryActionName = "Parry"; // Name of parry action
     private PlayerInput _playerInput;
@@ -12,15 +12,13 @@ public class PlayerController : MonoBehaviour
     private InputAction _fastStepAction;
     private InputAction _parryAction;
 
-    [Header("Spawn")]
-    public float leftSpawnX = -2.4f;
+    [Header("Spawn")] public float leftSpawnX = -2.4f;
     public float rightSpawnX = 2.4f;
     public float spawnY = 0.5f;
     private Vector3 _spawnPosition;
     private int _facingDirection;
 
-    [Header("Movement")]
-    public float stepDistance = 0.16f;
+    [Header("Movement")] public float stepDistance = 0.16f;
     public float fastStepDistance = 0.24f;
     public float dashDistance = 1f;
     public float stepCooldownSeconds = 0.12f;
@@ -33,10 +31,9 @@ public class PlayerController : MonoBehaviour
     public float fastSpeed = 2.2f;
     public float dashSpeed = 5f;
 
-    [Header("Combat State")]
-    private bool _isParrying;
+    [Header("Combat State")] private bool _isParrying;
     private float _parryActiveUntil;
-    public float parryWindowSeconds = 0.2f;   // Active time
+    public float parryWindowSeconds = 0.2f; // Active time
     public float parryCooldownSeconds = 0.4f; // Cooldown before you can parry again
     private float _nextParryTime;
     private bool _isStunned;
@@ -49,8 +46,7 @@ public class PlayerController : MonoBehaviour
     private float _nextDashTime;
     private bool _dashHeld;
 
-    [HideInInspector]
-    public bool IsAttacking => _sword != null && _sword.IsAttacking;
+    [HideInInspector] public bool IsAttacking => _sword != null && _sword.IsAttacking;
     public bool IsParrying => _isParrying;
 
     private Rigidbody2D _rb;
@@ -101,7 +97,7 @@ public class PlayerController : MonoBehaviour
     {
         GameManager gameManager = GameManager.Instance;
 
-        if (_isParrying) 
+        if (_isParrying)
         {
             Debug.Log($"{gameObject.name} is parrying, time: {Time.time}, expires at: {_parryActiveUntil}");
         }
@@ -126,12 +122,6 @@ public class PlayerController : MonoBehaviour
                 // Still stunned - can't do anything
                 return;
             }
-        }
-
-        if (gameManager != null && !gameManager.CanPlayersMove())
-        {
-            _isStepping = false;
-            return;
         }
 
         if (gameManager != null && !gameManager.CanPlayersMove())
@@ -186,6 +176,13 @@ public class PlayerController : MonoBehaviour
             _isStepping = true;
             _nextDashTime = Time.time + dashCooldownSeconds;
             _dashHeld = true;
+
+            NotifyMovementDirection(dashDirection);
+            if (GameManager.Instance != null &&
+                GameManager.Instance.currentState == GameManager.BoutState.Countdown)
+            {
+                GameManager.Instance.OnEarlyMovement(this);
+            }
         }
     }
 
@@ -230,6 +227,25 @@ public class PlayerController : MonoBehaviour
 
         _isStepping = true;
         _nextStepTime = Time.time + stepCooldownSeconds;
+        
+        NotifyMovementDirection(direction);
+    }
+
+    private void NotifyMovementDirection(float movementX)
+    {
+        if (GameManager.Instance == null)
+            return;
+
+        float dot = movementX * _facingDirection;
+
+        if (dot > 0f)
+        {
+            GameManager.Instance.OnOffensiveAction(this);
+        }
+        else if (dot < 0f)
+        {
+            GameManager.Instance.OnRetreat(this);
+        }
     }
 
     // Trigger sword attack
@@ -237,35 +253,35 @@ public class PlayerController : MonoBehaviour
     {
         if (!context.performed || _sword == null)
             return;
-        
+
         if (_isStunned)
             return;
 
         Debug.Log($"Attack fired from {gameObject.name}");
         _sword.StartAttack();
+        GameManager.Instance.OnOffensiveAction(this);
     }
-    
+
     public void OnParry(InputAction.CallbackContext context)
     {
         if (!context.performed)
             return;
-        
+
         if (_isStunned)
             return;
-        
+
         if (IsAttacking)
             return;
-        
+
         if (Time.time < _nextParryTime)
             return;
-        
+
         Debug.Log($"{gameObject.name} initiated parry");
-        
+
         _isParrying = true;
         _parryActiveUntil = Time.time + parryWindowSeconds;
         _nextParryTime = Time.time + parryCooldownSeconds;
         UpdateVisualState();
-
     }
 
     // Helper for external parry check
@@ -280,6 +296,7 @@ public class PlayerController : MonoBehaviour
         {
             Debug.Log($"{gameObject.name} parry checked, they are not parrying");
         }
+
         return yes_or_no;
     }
 
@@ -287,12 +304,12 @@ public class PlayerController : MonoBehaviour
     {
         _isStunned = true;
         _stunnedUntil = Time.time + duration;
-        
+
         // Stop any movement
         _isStepping = false;
 
         UpdateVisualState();
-        
+
         Debug.Log($"{gameObject.name} stunned for {duration} seconds");
     }
 
@@ -344,5 +361,11 @@ public class PlayerController : MonoBehaviour
         _isStunned = false;
         _isParrying = false;
         UpdateVisualState();
+    }
+
+    public void NotifyRightOfWayChanged(bool hasRoW)
+    {
+        if (_sword != null)
+            _sword.SetRightOfWayVisual(hasRoW);
     }
 }
