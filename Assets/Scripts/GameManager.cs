@@ -381,7 +381,24 @@ public class GameManager : MonoBehaviour
 
         if (_rightOfWayHolder == player)
         {
-            ClearRightOfWay();
+            // Transfer right of way to the opponent
+            PlayerController opponent = null;
+            foreach (var p in _registeredPlayers)
+            {
+                if (p != player)
+                {
+                    opponent = p;
+                    break;
+                }
+            }
+            if (opponent != null)
+            {
+                AssignRightOfWay(opponent);
+            }
+            else
+            {
+                ClearRightOfWay();
+            }
         }
     }
 }

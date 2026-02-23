@@ -24,6 +24,7 @@ public class SwordAttack : MonoBehaviour
     public float AttackAngle => _attackAngle;
 
     private bool _isAttacking;
+    private bool _hitLanded;
     private BoxCollider2D _hitbox;
     private PlayerController _owner;
 
@@ -45,6 +46,7 @@ public class SwordAttack : MonoBehaviour
     public void StartAttack()
     {
         if (_isAttacking) return;
+        _hitLanded = false;
         StartCoroutine(ThrustRoutine());
     }
 
@@ -110,6 +112,13 @@ public class SwordAttack : MonoBehaviour
         yield return MoveSword(angleThrustPos, restLocalPosition, thrustBackTime);
 
         _isAttacking = false;
+
+        // If no hit or parry occurred, it's a miss
+        if (!_hitLanded && GameManager.Instance != null)
+        {
+            GameManager.Instance.OnAttackMissed(_owner);
+            Debug.Log($"{_owner.name}'s attack missed!");
+        }
     }
 
     // Smoothly move sword between positions along the attack angle
@@ -138,6 +147,7 @@ public class SwordAttack : MonoBehaviour
             return;
 
         Debug.Log($"{_owner.name}'s blade contacted {victim.name}'s body");
+        _hitLanded = true;
 
         if (victim.IsInParryWindow())
         {
