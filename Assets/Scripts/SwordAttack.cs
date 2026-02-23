@@ -11,6 +11,12 @@ public class SwordAttack : MonoBehaviour
     public float thrustOutTime = 0.08f;   // Time to extend sword
     public float thrustBackTime = 0.06f;  // Time to retract sword
 
+    [Header("Angling")]
+    private float _currentAngle = 0f;  // Current sword angle
+    private float _attackAngle = 0f;   // Angle locked in when attack starts
+
+    public float AttackAngle => _attackAngle;
+
     private bool _isAttacking;
     private BoxCollider2D _hitbox;
     private PlayerController _owner;
@@ -20,7 +26,7 @@ public class SwordAttack : MonoBehaviour
     void Awake()
     {
         _hitbox = GetComponent<BoxCollider2D>();
-        _hitbox.enabled = false;
+        _hitbox.enabled = true;
 
         _owner = transform.root.GetComponent<PlayerController>();
         transform.localPosition = restLocalPosition;
@@ -33,22 +39,40 @@ public class SwordAttack : MonoBehaviour
         StartCoroutine(ThrustRoutine());
     }
 
+    // Set the visual angle of the sword
+    public void SetAngle(float angleDegrees)
+    {
+        _currentAngle = angleDegrees;
+
+        // Rotate the sword sprite around its pivot
+        transform.localRotation = Quaternion.Euler(0f, 0f, angleDegrees);
+    }
+
+    // Enable or disable the hitbox
+    public void SetHitboxEnabled(bool enabled)
+    {
+        if (_hitbox != null)
+        {
+            _hitbox.enabled = enabled;
+        }
+    }
+
     // Cancel an ongoing attack and reset sword
     public void CancelAttack()
     {
         if (!_isAttacking)
             return;
-        
+
         // Stop the thrust
         StopAllCoroutines();
-        
+
         // Reset state
         _isAttacking = false;
         _hitbox.enabled = false;
-        
+
         // Snap sword back to rest position
         transform.localPosition = restLocalPosition;
-        
+
         Debug.Log($"{_owner.name}'s attack was cancelled");
     }
 
@@ -57,57 +81,70 @@ public class SwordAttack : MonoBehaviour
     {
         _isAttacking = true;
 
-        // Extend sword and enable hitbox
-        _hitbox.enabled = true;
-        yield return MoveSword(restLocalPosition, thrustLocalPosition, thrustOutTime);
+        // Lock in the attack angle at the start
+        _attackAngle = _currentAngle;
 
-        // Retract sword and disable hitbox
-        _hitbox.enabled = false;
-        yield return MoveSword(thrustLocalPosition, restLocalPosition, thrustBackTime);
+        // Calculate direction based on attack angle
+        Vector2 direction = new Vector2(Mathf.Cos(_attackAngle * Mathf.Deg2Rad),
+                                         Mathf.Sin(_attackAngle * Mathf.Deg2Rad));
+
+        // Thrust distance is how far we extend from rest
+        float thrustDistance = thrustLocalPosition.magnitude;
+
+        // Calculate thrust position: start from rest, extend along angle
+        Vector2 angleThrustPos = (Vector2)restLocalPosition + (direction * thrustDistance);
+
+        // Extend sword
+        yield return MoveSword(restLocalPosition, angleThrustPos, thrustOutTime);
+
+        // Retract sword
+        yield return MoveSword(angleThrustPos, restLocalPosition, thrustBackTime);
 
         _isAttacking = false;
     }
 
-    // Smoothly move sword between positions
+    // Smoothly move sword between positions along the attack angle
     IEnumerator MoveSword(Vector2 from, Vector2 to, float duration)
     {
         float t = 0f;
+
         while (t < duration)
         {
             t += Time.deltaTime;
             transform.localPosition = Vector2.Lerp(from, to, t / duration);
             yield return null;
         }
+
         transform.localPosition = to;
     }
 
-    // Detect hits on opponent
     void OnTriggerEnter2D(Collider2D other)
     {
-        if (!_hitbox.enabled) return;
+        if (!other.CompareTag("Player")) return;
 
-        // Ignore if the opponent is the owner or invalid
         PlayerController victim = other.GetComponentInParent<PlayerController>();
         if (victim == null || victim == _owner) return;
 
-        // Ignore hits if the bout is in a false start
         if (GameManager.Instance != null && GameManager.Instance.currentState != GameManager.BoutState.Fencing)
-        {
             return;
-        }
 
-        _hitbox.enabled = false;
+        Debug.Log($"{_owner.name}'s blade contacted {victim.name}'s body");
 
-        // Check if other is parrying
         if (victim.IsInParryWindow())
         {
-            Debug.Log($"{victim.name} PARRIED {_owner.name}'s attack!");
-
-            GameManager.Instance.OnSuccessfulParry(_owner, victim);
-            return;
+            if (victim.DoesParryMatchAttack(_attackAngle))
+            {
+                Debug.Log($"{victim.name} SUCCESSFULLY PARRIED {_owner.name}'s attack!");
+                GameManager.Instance.OnSuccessfulParry(_owner, victim);
+                return;
+            }
+            else
+            {
+                Debug.Log($"{victim.name} parried but WRONG ANGLE!");
+            }
         }
 
         GameManager.Instance.OnPlayerHit(_owner);
-        Debug.Log($"{_owner.name} hit {other.name}");
+        Debug.Log($"{_owner.name} scored on {victim.name}");
     }
 }

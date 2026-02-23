@@ -7,10 +7,12 @@ public class PlayerController : MonoBehaviour
     public string moveActionName = "Move";           // Name of movement action
     public string fastStepActionName = "FastStepToggle"; // Name of fast step toggle
     public string parryActionName = "Parry"; // Name of parry action
+    public string swordAngleActionName = "SwordAngle";  // et cetera
     private PlayerInput _playerInput;
     private InputAction _moveAction;
     private InputAction _fastStepAction;
     private InputAction _parryAction;
+    private InputAction _swordAngleAction;
 
     [Header("Spawn")]
     public float leftSpawnX = -2.4f;
@@ -41,6 +43,15 @@ public class PlayerController : MonoBehaviour
     private float _nextParryTime;
     private bool _isStunned;
     private float _stunnedUntil;
+    private float _parryAngle = 0f;  // angle locked in on parry
+    public float ParryAngle => _parryAngle;  // getter
+
+    [Header("Sword Angling")]
+    public float maxSwordAngleDegrees = 37.5f;
+    private float _currentSwordAngle = 0f;
+    public float parryAngleToleranceDegrees = 25f;
+
+    public float CurrentSwordAngle => _currentSwordAngle;  // Public getter
 
     private bool _isStepping;
     private Vector3 _stepTarget;
@@ -70,6 +81,7 @@ public class PlayerController : MonoBehaviour
             _moveAction = _playerInput.actions[moveActionName];
             _fastStepAction = _playerInput.actions[fastStepActionName];
             _parryAction = _playerInput.actions[parryActionName];
+            _swordAngleAction = _playerInput.actions[swordAngleActionName];
         }
     }
 
@@ -113,12 +125,20 @@ public class PlayerController : MonoBehaviour
             Debug.Log($"Parry from {gameObject.name} stopped");
         }
 
+        UpdateSwordAngle();
+
         if (_isStunned)
         {
             if (Time.time >= _stunnedUntil)
             {
                 _isStunned = false;
                 SetPlayerColor(Color.white);
+
+                if (_sword != null)
+                {
+                    _sword.SetHitboxEnabled(true);
+                }
+
                 Debug.Log($"{gameObject.name} stun ended");
             }
             else
@@ -219,6 +239,54 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    // Update sword angle based on right stick input
+    private void UpdateSwordAngle()
+    {
+        if (_swordAngleAction == null || _sword == null)
+            return;
+
+        // Can't change angle while attacking
+        if (IsAttacking)
+            return;
+
+        Vector2 stickInput = _swordAngleAction.ReadValue<Vector2>();
+
+        // If stick is neutral, reset to forward (0°)
+        if (stickInput.magnitude < 0.2f)
+        {
+            _currentSwordAngle = 0f;
+        }
+        else
+        {
+            // Calculate angle from stick input (right is 0°, up is 90°)
+            float rawAngle = Mathf.Atan2(stickInput.y, stickInput.x) * Mathf.Rad2Deg;
+
+            // Account for player facing direction
+            if (_facingDirection < 0)
+            {
+                // Player 2 faces left - their "forward" is 180°, so shift everything
+                rawAngle = rawAngle - 180f;
+
+                // Normalize to -180 to 180 range
+                if (rawAngle < -180f) rawAngle += 360f;
+                if (rawAngle > 180f) rawAngle -= 360f;
+
+                rawAngle = -rawAngle; // Mirror angle for left-facing player
+            }
+
+            // Clamp to allowed cone, then scale to use full stick range
+            float clampedAngle = Mathf.Clamp(rawAngle, -90f, 90f);
+
+            // Map ±90° stick range to ±maxSwordAngleDegrees
+            _currentSwordAngle = (clampedAngle / 90f) * maxSwordAngleDegrees;
+
+            Debug.Log($"{gameObject.name}: stick=({stickInput.x:F2},{stickInput.y:F2}), raw={Mathf.Atan2(stickInput.y, stickInput.x) * Mathf.Rad2Deg:F1}, adjusted={rawAngle:F1}, final={_currentSwordAngle:F1}");
+        }
+
+        // Apply rotation to sword
+        _sword.SetAngle(_currentSwordAngle);
+    }
+
     private void StartStep(float direction, bool isFullStick)
     {
         float distance = isFullStick ? fastStepDistance : stepDistance;
@@ -245,6 +313,7 @@ public class PlayerController : MonoBehaviour
         _sword.StartAttack();
     }
     
+    // Trigger parry
     public void OnParry(InputAction.CallbackContext context)
     {
         if (!context.performed)
@@ -259,13 +328,13 @@ public class PlayerController : MonoBehaviour
         if (Time.time < _nextParryTime)
             return;
         
-        Debug.Log($"{gameObject.name} initiated parry");
+        Debug.Log($"{gameObject.name} initiated parry at angle {_currentSwordAngle}");
         
         _isParrying = true;
         _parryActiveUntil = Time.time + parryWindowSeconds;
         _nextParryTime = Time.time + parryCooldownSeconds;
+        _parryAngle = _currentSwordAngle;  
         UpdateVisualState();
-
     }
 
     // Helper for external parry check
@@ -283,11 +352,27 @@ public class PlayerController : MonoBehaviour
         return yes_or_no;
     }
 
+    // Check if a parry angle matches an attack angle relative to tolerance
+    public bool DoesParryMatchAttack(float attackAngle)
+    {
+        float angleDifference = Mathf.Abs(Mathf.DeltaAngle(_parryAngle, attackAngle));
+        bool matches = angleDifference <= parryAngleToleranceDegrees;
+        
+        Debug.Log($"{gameObject.name} parry check: parry={_parryAngle}°, attack={attackAngle}°, diff={angleDifference}°, matches={matches}");
+        
+        return matches;
+    }
+
     public void ApplyStun(float duration)
     {
         _isStunned = true;
         _stunnedUntil = Time.time + duration;
-        
+
+        if (_sword != null)
+        {
+            _sword.SetHitboxEnabled(false);
+        }
+
         // Stop any movement
         _isStepping = false;
 
@@ -344,5 +429,10 @@ public class PlayerController : MonoBehaviour
         _isStunned = false;
         _isParrying = false;
         UpdateVisualState();
+
+        if (_sword != null)
+        {
+            _sword.SetHitboxEnabled(true);
+        }
     }
 }

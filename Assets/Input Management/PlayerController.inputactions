@@ -16,6 +16,15 @@
                     "initialStateCheck": true
                 },
                 {
+                    "name": "SwordAngle",
+                    "type": "Value",
+                    "id": "62e862f1-3285-4d9d-b1e9-a89b9a619acc",
+                    "expectedControlType": "Vector2",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                },
+                {
                     "name": "FastStepToggle",
                     "type": "Button",
                     "id": "052d2c98-cbac-4e46-aa59-223024ddee03",
@@ -85,6 +94,17 @@
                     "processors": "",
                     "groups": "",
                     "action": "Parry",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "550513f8-bd57-4883-b4c2-cce47af20c2c",
+                    "path": "<Gamepad>/rightStick",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "SwordAngle",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }
