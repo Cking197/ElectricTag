@@ -109,6 +109,19 @@ TextureImporter:
     ignorePlatformSupport: 0
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WindowsStoreApps
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
   spriteSheet:
     serializedVersion: 2
     sprites:
@@ -117,7 +130,7 @@ TextureImporter:
       rect:
         serializedVersion: 2
         x: 0
-        y: 5
+        y: 18
         width: 16
         height: 7
       alignment: 9
@@ -138,7 +151,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 47a25b905f2777043a6a94df42dda6b2
+    spriteID: a0a314c2578afde459558a2717bfa1d7
     internalID: 0
     vertices: []
     indices: 

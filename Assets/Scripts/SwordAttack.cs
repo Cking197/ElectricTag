@@ -1,8 +1,14 @@
 using UnityEngine;
 using System.Collections;
+using UnityEngine.Serialization;
 
 public class SwordAttack : MonoBehaviour
 {
+    
+    [FormerlySerializedAs("_swordSprite")] [SerializeField] 
+    private SpriteRenderer swordSprite;
+    private Color _defaultColor = Color.black;
+    
     [Header("Positions")]
     public Vector2 restLocalPosition = new Vector2(0.6f, 0f);   // Default sword position
     public Vector2 thrustLocalPosition = new Vector2(1.2f, 0f); // Sword fully extended position
@@ -30,6 +36,9 @@ public class SwordAttack : MonoBehaviour
 
         _owner = transform.root.GetComponent<PlayerController>();
         transform.localPosition = restLocalPosition;
+
+        if (swordSprite == null)
+            swordSprite = GetComponentInChildren<SpriteRenderer>();
     }
 
     // Start a sword attack if not already attacking
@@ -146,5 +155,13 @@ public class SwordAttack : MonoBehaviour
 
         GameManager.Instance.OnPlayerHit(_owner);
         Debug.Log($"{_owner.name} scored on {victim.name}");
+    }
+    
+    public void SetRightOfWayVisual(bool hasRightOfWay)
+    {
+        if (swordSprite == null)
+            return;
+
+        swordSprite.color = hasRightOfWay ? Color.yellow : _defaultColor;
     }
 }
