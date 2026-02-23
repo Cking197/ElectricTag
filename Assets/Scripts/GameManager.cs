@@ -110,6 +110,7 @@ public class GameManager : MonoBehaviour
         {
             countdownText.gameObject.SetActive(true);
             countdownText.text = "HALT";
+            countdownText.color = Color.red;
         }
 
         yield return new WaitForSeconds(0.6f);
@@ -118,6 +119,7 @@ public class GameManager : MonoBehaviour
         {
             string side = _falseStartOffender.name == "Player1" ? "LEFT" : "RIGHT";
             countdownText.text = $"FALSE START {side}";
+            countdownText.color = Color.red;
         }
 
         yield return new WaitForSeconds(0.9f);
@@ -153,17 +155,20 @@ public class GameManager : MonoBehaviour
         if (countdownText != null)
         {
             countdownText.gameObject.SetActive(true);
-            countdownText.text = "EN GARDE";
+            countdownText.text = "En Garde...";
+            countdownText.color = Color.white;
         }
 
         yield return new WaitForSeconds(0.9f);
 
         if (countdownText != null)
-            countdownText.text = "READY";
+            countdownText.text = "Ready...";
+        countdownText.color = Color.yellow;
         yield return new WaitForSeconds(0.9f);
 
         if (countdownText != null)
-            countdownText.text = "FENCE";
+            countdownText.text = "FENCE!";
+        countdownText.color = Color.green;
 
         currentState = BoutState.Fencing;
         yield return new WaitForSeconds(1.0f);
@@ -241,6 +246,7 @@ public class GameManager : MonoBehaviour
         {
             countdownText.gameObject.SetActive(true);
             countdownText.text = "HALT";
+            countdownText.color = Color.red;
         }
 
         yield return new WaitForSeconds(0.9f);
@@ -249,11 +255,13 @@ public class GameManager : MonoBehaviour
         {
             _player1Score++;
             countdownText.text = "ATTACK LEFT";
+            countdownText.color = Color.red;
         }
         else
         {
             _player2Score++;
             countdownText.text = "ATTACK RIGHT";
+            countdownText.color = Color.red;
         }
 
         player1ScoreUI.text = _player1Score.ToString();
