@@ -38,6 +38,12 @@ public class GameManager : MonoBehaviour
         Resolving
     }
 
+    public enum ScoreReason
+    {
+        Attack,
+        OutOfBounds
+    }
+
     public BoutState currentState = BoutState.WaitingForPlayers;
 
     // Coroutines
@@ -208,7 +214,8 @@ public class GameManager : MonoBehaviour
         _hitResolutionRoutine = null;
 
         if (scorer != null)
-            _haltRoutine = StartCoroutine(HaltAndScoreRoutine(scorer));
+            _haltRoutine = StartCoroutine(
+                HaltAndScoreRoutine(scorer, ScoreReason.Attack));
     }
 
     // Called when a player scores
@@ -238,7 +245,10 @@ public class GameManager : MonoBehaviour
     }
 
     // Handles halt, scoring, and reset after a touch
-    IEnumerator HaltAndScoreRoutine(PlayerController attacker)
+    IEnumerator HaltAndScoreRoutine(
+        PlayerController scorer,
+        ScoreReason reason,
+        PlayerController offender = null)
     {
         currentState = BoutState.Resolving;
 
@@ -251,21 +261,34 @@ public class GameManager : MonoBehaviour
 
         yield return new WaitForSeconds(0.9f);
 
-        if (attacker.name == "Player1")
-        {
+        bool scorerIsLeft = scorer.name == "Player1";
+
+        // Increment score
+        if (scorerIsLeft)
             _player1Score++;
-            countdownText.text = "ATTACK LEFT";
-            countdownText.color = Color.red;
-        }
         else
-        {
             _player2Score++;
-            countdownText.text = "ATTACK RIGHT";
-            countdownText.color = Color.red;
-        }
 
         player1ScoreUI.text = _player1Score.ToString();
         player2ScoreUI.text = _player2Score.ToString();
+
+        // Determine announcement side
+        string side;
+
+        if (reason == ScoreReason.OutOfBounds && offender != null)
+        {
+            bool offenderIsLeft = offender.name == "Player1";
+            side = offenderIsLeft ? "LEFT" : "RIGHT";
+
+            countdownText.text = $"OUT {side}";
+        }
+        else
+        {
+            side = scorerIsLeft ? "LEFT" : "RIGHT";
+            countdownText.text = $"ATTACK {side}";
+        }
+
+        countdownText.color = Color.red;
 
         yield return new WaitForSeconds(1.2f);
 
@@ -391,6 +414,7 @@ public class GameManager : MonoBehaviour
                     break;
                 }
             }
+
             if (opponent != null)
             {
                 AssignRightOfWay(opponent);
@@ -399,6 +423,28 @@ public class GameManager : MonoBehaviour
             {
                 ClearRightOfWay();
             }
+        }
+    }
+
+    public void OnPlayerLeftStrip(PlayerController offender)
+    {
+        if (currentState != BoutState.Fencing || _haltRoutine != null)
+            return;
+
+        PlayerController opponent = null;
+
+        foreach (var p in _registeredPlayers)
+        {
+            if (p != offender)
+            {
+                opponent = p;
+                break;
+            }
+        }
+
+        if (opponent != null)
+        {
+            _haltRoutine = StartCoroutine(HaltAndScoreRoutine(opponent, ScoreReason.OutOfBounds, offender));
         }
     }
 }
