@@ -7,7 +7,7 @@ public class SwordAttack : MonoBehaviour
     [FormerlySerializedAs("_swordSprite")]
     [SerializeField]
     private SpriteRenderer swordSprite;
-    private Color _defaultColor = Color.black;
+    private Color _defaultColor = Color.white;
 
     [Header("Positions")]
     public Vector2 restLocalPosition = new Vector2(0.6f, 0f);   // Sword handle position relative to player when angle is 0
@@ -23,6 +23,7 @@ public class SwordAttack : MonoBehaviour
 
     [Header("Thrust")]
     public float thrustDistance = 0.6f;   // How far the sword extends on a thrust
+    public float bladeLength = 0.5f;      // Length of blade from handle to tip (used to compute thrust Y)
 
     [Header("Angling")]
     private float _currentAngle = 0f;     // Current sword angle (set by right stick or attack input)
@@ -75,27 +76,37 @@ public class SwordAttack : MonoBehaviour
             ApplyPivotPosition(_currentAngle, 0f);
     }
 
-    // Compute and set sword world position + rotation based on pivot, angle, and thrust extension
+    // Compute forward direction for a given angle, accounting for facing
+    private Vector2 GetForward(float angleDegrees)
+    {
+        float rad = angleDegrees * Mathf.Deg2Rad;
+        return new Vector2(Mathf.Cos(rad) * _facingDirection, Mathf.Sin(rad));
+    }
+
+    // Compute handle world position for a given angle
+    private Vector2 GetHandlePos(float angleDegrees)
+    {
+        Vector2 flippedPivot = new Vector2(pivotOffset.x * _facingDirection, pivotOffset.y);
+        Vector2 pivotWorld = (Vector2)_owner.transform.position + flippedPivot;
+        return pivotWorld + GetForward(angleDegrees) * armLength;
+    }
+
+    // Position sword by angle + extension along that angle (used for idle and wind-up/retract)
     private void ApplyPivotPosition(float angleDegrees, float extension)
     {
         if (_owner == null) return;
 
-        // Flip pivot X for facing direction
-        Vector2 flippedPivot = new Vector2(pivotOffset.x * _facingDirection, pivotOffset.y);
+        Vector2 handlePos = GetHandlePos(angleDegrees);
+        Vector2 finalPos = handlePos + GetForward(angleDegrees) * extension;
 
-        // Pivot in world space
-        Vector2 pivotWorld = (Vector2)_owner.transform.position + flippedPivot;
-
-        // Forward direction: flip X for facing, Y is always as-is (up is up for both players)
-        float rad = angleDegrees * Mathf.Deg2Rad;
-        Vector2 forward = new Vector2(Mathf.Cos(rad) * _facingDirection, Mathf.Sin(rad));
-
-        // Sword handle sits armLength from pivot, tip extends further by extension
-        Vector2 handlePos = pivotWorld + forward * armLength;
-        Vector2 finalPos = handlePos + forward * extension;
-
-        // Use cached Z so sword stays in front of background
         transform.position = new Vector3(finalPos.x, finalPos.y, _cachedZ);
+        transform.rotation = Quaternion.Euler(0f, 0f, angleDegrees * _facingDirection);
+    }
+
+    // Position sword at explicit world XY with explicit rotation (used during straight thrust)
+    private void ApplyDirectPosition(float worldX, float worldY, float angleDegrees)
+    {
+        transform.position = new Vector3(worldX, worldY, _cachedZ);
         transform.rotation = Quaternion.Euler(0f, 0f, angleDegrees * _facingDirection);
     }
 
@@ -130,7 +141,7 @@ public class SwordAttack : MonoBehaviour
         Debug.Log($"{_owner.name}'s attack was cancelled");
     }
 
-    // Handles wind-up rotation, thrust, and retraction
+    // Handles wind-up rotation, straight thrust, and arcing retraction
     IEnumerator ThrustRoutine()
     {
         _isAttacking = true;
@@ -138,36 +149,60 @@ public class SwordAttack : MonoBehaviour
         // Lock in the attack angle at the start
         _attackAngle = _currentAngle;
 
-        // --- Wind-up: smoothly rotate to attack angle ---
-        float startAngle = _currentAngle;
+        // Compute tip Y at rest angle — this is the Y the thrust will travel along
+        Vector2 forward = GetForward(_attackAngle);
+        Vector2 handlePos = GetHandlePos(_attackAngle);
+        float thrustY = handlePos.y + forward.y * bladeLength;
+
+        // Compute the handle X at full extension (straight thrust, so angle = 0)
+        // The thrust travels horizontally at thrustY
+        Vector2 restHandlePos = GetHandlePos(0f);
+        float thrustStartX = GetHandlePos(_attackAngle).x;
+        float thrustEndX = thrustStartX + _facingDirection * thrustDistance;
+
+        // --- Wind-up: smoothly rotate from current angle to 0° (straight) ---
         float t = 0f;
         while (t < windUpTime)
         {
             t += Time.deltaTime;
-            float blendedAngle = Mathf.Lerp(startAngle, _attackAngle, t / windUpTime);
-            ApplyPivotPosition(blendedAngle, 0f);
+            float blendedAngle = Mathf.Lerp(_attackAngle, 0f, t / windUpTime);
+            // Also lerp Y toward thrustY as sword straightens
+            Vector2 hp = GetHandlePos(blendedAngle);
+            float blendedY = Mathf.Lerp(hp.y, thrustY, t / windUpTime);
+            ApplyDirectPosition(hp.x, blendedY, blendedAngle);
             yield return null;
         }
-        ApplyPivotPosition(_attackAngle, 0f);
+        ApplyDirectPosition(GetHandlePos(0f).x, thrustY, 0f);
 
-        // --- Thrust out: extend forward along attack angle ---
+        // Cache the straight handle X as thrust start
+        thrustStartX = GetHandlePos(0f).x;
+        thrustEndX = thrustStartX + _facingDirection * thrustDistance;
+
+        // --- Thrust out: extend straight forward at thrustY ---
         t = 0f;
         while (t < thrustOutTime)
         {
             t += Time.deltaTime;
-            float extension = Mathf.Lerp(0f, thrustDistance, t / thrustOutTime);
-            ApplyPivotPosition(_attackAngle, extension);
+            float x = Mathf.Lerp(thrustStartX, thrustEndX, t / thrustOutTime);
+            ApplyDirectPosition(x, thrustY, 0f);
             yield return null;
         }
-        ApplyPivotPosition(_attackAngle, thrustDistance);
+        ApplyDirectPosition(thrustEndX, thrustY, 0f);
 
-        // --- Retract: pull back along the same angle, slower ---
+        // --- Retract: arc back to rest angle/position ---
         t = 0f;
         while (t < thrustBackTime)
         {
             t += Time.deltaTime;
-            float extension = Mathf.Lerp(thrustDistance, 0f, t / thrustBackTime);
-            ApplyPivotPosition(_attackAngle, extension);
+            float p = t / thrustBackTime;
+            // Lerp angle back from 0 to _attackAngle
+            float retractAngle = Mathf.Lerp(0f, _attackAngle, p);
+            // Lerp extension back from thrustDistance to 0
+            float extension = Mathf.Lerp(thrustDistance, 0f, p);
+            // Lerp Y back from thrustY to rest handle Y
+            Vector2 hp = GetHandlePos(retractAngle);
+            float retractY = Mathf.Lerp(thrustY, hp.y, p);
+            ApplyDirectPosition(hp.x + GetForward(retractAngle).x * extension, retractY, retractAngle);
             yield return null;
         }
         ApplyPivotPosition(_attackAngle, 0f);
