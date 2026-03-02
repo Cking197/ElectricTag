@@ -4,29 +4,42 @@ using UnityEngine.Serialization;
 
 public class SwordAttack : MonoBehaviour
 {
-    
-    [FormerlySerializedAs("_swordSprite")] [SerializeField] 
+    [FormerlySerializedAs("_swordSprite")]
+    [SerializeField]
     private SpriteRenderer swordSprite;
     private Color _defaultColor = Color.black;
-    
+
     [Header("Positions")]
-    public Vector2 restLocalPosition = new Vector2(0.6f, 0f);   // Default sword position
-    public Vector2 thrustLocalPosition = new Vector2(1.2f, 0f); // Sword fully extended position
+    public Vector2 restLocalPosition = new Vector2(0.6f, 0f);   // Sword handle position relative to player when angle is 0
+
+    [Header("Pivot")]
+    public Vector2 pivotOffset = new Vector2(-0.3f, 0f);        // Pivot (shoulder/arm) position relative to player center
+    public float armLength = 0.5f;                              // Distance from pivot to sword handle
 
     [Header("Timing")]
+    public float windUpTime = 0.05f;      // Time to rotate sword to attack angle before thrusting
     public float thrustOutTime = 0.08f;   // Time to extend sword
-    public float thrustBackTime = 0.06f;  // Time to retract sword
+    public float thrustBackTime = 0.12f;  // Time to retract sword (slower)
+
+    [Header("Thrust")]
+    public float thrustDistance = 0.6f;   // How far the sword extends on a thrust
+    public float bladeLength = 0.5f;      // Length of blade from handle to tip (used to compute thrust Y)
 
     [Header("Angling")]
-    private float _currentAngle = 0f;  // Current sword angle
-    private float _attackAngle = 0f;   // Angle locked in when attack starts
+    private float _currentAngle = 0f;     // Current sword angle (set by right stick or attack input)
+    private float _attackAngle = 0f;      // Angle locked in when attack starts
 
     public float AttackAngle => _attackAngle;
+
+    [Header("Blade Block")]
+    public float blockKnockbackDistance = 0.4f;
 
     private bool _isAttacking;
     private bool _hitLanded;
     private BoxCollider2D _hitbox;
     private PlayerController _owner;
+    private int _facingDirection;
+    private float _cachedZ;
 
     public bool IsAttacking => _isAttacking;
 
@@ -36,10 +49,72 @@ public class SwordAttack : MonoBehaviour
         _hitbox.enabled = true;
 
         _owner = transform.root.GetComponent<PlayerController>();
-        transform.localPosition = restLocalPosition;
+        _cachedZ = transform.position.z;
+
+        // Zero out local position — world position is fully driven by ApplyPivotPosition
+        transform.localPosition = new Vector3(0f, 0f, transform.localPosition.z);
 
         if (swordSprite == null)
             swordSprite = GetComponentInChildren<SpriteRenderer>();
+    }
+
+    void Start()
+    {
+        // FacingDirection is set in PlayerController.Start via PlayerInput.playerIndex
+        // PlayerController.Awake runs before SwordAttack.Start so this is safe
+        _facingDirection = _owner != null ? _owner.FacingDirection : 1;
+        ApplyPivotPosition(_currentAngle, 0f);
+        Debug.Log($"{_owner?.name} sword Start: facingDir={_facingDirection}, cachedZ={_cachedZ}");
+    }
+
+    // Called every frame by PlayerController via SetAngle — positions sword around pivot
+    public void SetAngle(float angleDegrees)
+    {
+        _currentAngle = angleDegrees;
+
+        if (!_isAttacking)
+            ApplyPivotPosition(_currentAngle, 0f);
+    }
+
+    // Compute forward direction for a given angle, accounting for facing
+    private Vector2 GetForward(float angleDegrees)
+    {
+        float rad = angleDegrees * Mathf.Deg2Rad;
+        return new Vector2(Mathf.Cos(rad) * _facingDirection, Mathf.Sin(rad));
+    }
+
+    // Compute handle world position for a given angle
+    private Vector2 GetHandlePos(float angleDegrees)
+    {
+        Vector2 flippedPivot = new Vector2(pivotOffset.x * _facingDirection, pivotOffset.y);
+        Vector2 pivotWorld = (Vector2)_owner.transform.position + flippedPivot;
+        return pivotWorld + GetForward(angleDegrees) * armLength;
+    }
+
+    // Position sword by angle + extension along that angle (used for idle and wind-up/retract)
+    private void ApplyPivotPosition(float angleDegrees, float extension)
+    {
+        if (_owner == null) return;
+
+        Vector2 handlePos = GetHandlePos(angleDegrees);
+        Vector2 finalPos = handlePos + GetForward(angleDegrees) * extension;
+
+        transform.position = new Vector3(finalPos.x, finalPos.y, _cachedZ);
+        transform.rotation = Quaternion.Euler(0f, 0f, angleDegrees * _facingDirection);
+    }
+
+    // Position sword at explicit world XY with explicit rotation (used during straight thrust)
+    private void ApplyDirectPosition(float worldX, float worldY, float angleDegrees)
+    {
+        transform.position = new Vector3(worldX, worldY, _cachedZ);
+        transform.rotation = Quaternion.Euler(0f, 0f, angleDegrees * _facingDirection);
+    }
+
+    // Enable or disable the body-hit hitbox
+    public void SetHitboxEnabled(bool enabled)
+    {
+        if (_hitbox != null)
+            _hitbox.enabled = enabled;
     }
 
     // Start a sword attack if not already attacking
@@ -50,44 +125,23 @@ public class SwordAttack : MonoBehaviour
         StartCoroutine(ThrustRoutine());
     }
 
-    // Set the visual angle of the sword
-    public void SetAngle(float angleDegrees)
-    {
-        _currentAngle = angleDegrees;
-
-        // Rotate the sword sprite around its pivot
-        transform.localRotation = Quaternion.Euler(0f, 0f, angleDegrees);
-    }
-
-    // Enable or disable the hitbox
-    public void SetHitboxEnabled(bool enabled)
-    {
-        if (_hitbox != null)
-        {
-            _hitbox.enabled = enabled;
-        }
-    }
-
     // Cancel an ongoing attack and reset sword
     public void CancelAttack()
     {
         if (!_isAttacking)
             return;
 
-        // Stop the thrust
         StopAllCoroutines();
 
-        // Reset state
         _isAttacking = false;
-        _hitbox.enabled = false;
 
-        // Snap sword back to rest position
-        transform.localPosition = restLocalPosition;
+        // Snap back to current angle at rest
+        ApplyPivotPosition(_currentAngle, 0f);
 
         Debug.Log($"{_owner.name}'s attack was cancelled");
     }
 
-    // Handles sword thrust and retraction
+    // Handles wind-up rotation, straight thrust, and arcing retraction
     IEnumerator ThrustRoutine()
     {
         _isAttacking = true;
@@ -95,25 +149,67 @@ public class SwordAttack : MonoBehaviour
         // Lock in the attack angle at the start
         _attackAngle = _currentAngle;
 
-        // Calculate direction based on attack angle
-        Vector2 direction = new Vector2(Mathf.Cos(_attackAngle * Mathf.Deg2Rad),
-                                         Mathf.Sin(_attackAngle * Mathf.Deg2Rad));
+        // Compute tip Y at rest angle — this is the Y the thrust will travel along
+        Vector2 forward = GetForward(_attackAngle);
+        Vector2 handlePos = GetHandlePos(_attackAngle);
+        float thrustY = handlePos.y + forward.y * bladeLength;
 
-        // Thrust distance is how far we extend from rest
-        float thrustDistance = thrustLocalPosition.magnitude;
+        // Compute the handle X at full extension (straight thrust, so angle = 0)
+        // The thrust travels horizontally at thrustY
+        Vector2 restHandlePos = GetHandlePos(0f);
+        float thrustStartX = GetHandlePos(_attackAngle).x;
+        float thrustEndX = thrustStartX + _facingDirection * thrustDistance;
 
-        // Calculate thrust position: start from rest, extend along angle
-        Vector2 angleThrustPos = (Vector2)restLocalPosition + (direction * thrustDistance);
+        // --- Wind-up: smoothly rotate from current angle to 0° (straight) ---
+        float t = 0f;
+        while (t < windUpTime)
+        {
+            t += Time.deltaTime;
+            float blendedAngle = Mathf.Lerp(_attackAngle, 0f, t / windUpTime);
+            // Also lerp Y toward thrustY as sword straightens
+            Vector2 hp = GetHandlePos(blendedAngle);
+            float blendedY = Mathf.Lerp(hp.y, thrustY, t / windUpTime);
+            ApplyDirectPosition(hp.x, blendedY, blendedAngle);
+            yield return null;
+        }
+        ApplyDirectPosition(GetHandlePos(0f).x, thrustY, 0f);
 
-        // Extend sword
-        yield return MoveSword(restLocalPosition, angleThrustPos, thrustOutTime);
+        // Cache the straight handle X as thrust start
+        thrustStartX = GetHandlePos(0f).x;
+        thrustEndX = thrustStartX + _facingDirection * thrustDistance;
 
-        // Retract sword
-        yield return MoveSword(angleThrustPos, restLocalPosition, thrustBackTime);
+        // --- Thrust out: extend straight forward at thrustY ---
+        t = 0f;
+        while (t < thrustOutTime)
+        {
+            t += Time.deltaTime;
+            float x = Mathf.Lerp(thrustStartX, thrustEndX, t / thrustOutTime);
+            ApplyDirectPosition(x, thrustY, 0f);
+            yield return null;
+        }
+        ApplyDirectPosition(thrustEndX, thrustY, 0f);
+
+        // --- Retract: arc back to rest angle/position ---
+        t = 0f;
+        while (t < thrustBackTime)
+        {
+            t += Time.deltaTime;
+            float p = t / thrustBackTime;
+            // Lerp angle back from 0 to _attackAngle
+            float retractAngle = Mathf.Lerp(0f, _attackAngle, p);
+            // Lerp extension back from thrustDistance to 0
+            float extension = Mathf.Lerp(thrustDistance, 0f, p);
+            // Lerp Y back from thrustY to rest handle Y
+            Vector2 hp = GetHandlePos(retractAngle);
+            float retractY = Mathf.Lerp(thrustY, hp.y, p);
+            ApplyDirectPosition(hp.x + GetForward(retractAngle).x * extension, retractY, retractAngle);
+            yield return null;
+        }
+        ApplyPivotPosition(_attackAngle, 0f);
 
         _isAttacking = false;
 
-        // If no hit or parry occurred, it's a miss
+        // If no hit occurred, it's a miss
         if (!_hitLanded && GameManager.Instance != null)
         {
             GameManager.Instance.OnAttackMissed(_owner);
@@ -121,30 +217,57 @@ public class SwordAttack : MonoBehaviour
         }
     }
 
-    // Smoothly move sword between positions along the attack angle
-    IEnumerator MoveSword(Vector2 from, Vector2 to, float duration)
-    {
-        float t = 0f;
-
-        while (t < duration)
-        {
-            t += Time.deltaTime;
-            transform.localPosition = Vector2.Lerp(from, to, t / duration);
-            yield return null;
-        }
-
-        transform.localPosition = to;
-    }
-
     void OnTriggerEnter2D(Collider2D other)
     {
+        if (GameManager.Instance != null && GameManager.Instance.currentState != GameManager.BoutState.Fencing)
+            return;
+
+        // --- Blade-on-hilt block ---
+        HiltCollider hilt = other.GetComponent<HiltCollider>();
+        if (hilt != null)
+        {
+            PlayerController hiltOwner = other.GetComponentInParent<PlayerController>();
+            if (hiltOwner == null || hiltOwner == _owner)
+                return;
+
+            SwordAttack otherSword = other.GetComponentInParent<SwordAttack>();
+
+            if (_isAttacking && (otherSword == null || !otherSword._isAttacking))
+            {
+                Debug.Log($"{_owner.name}'s thrust was blocked by {hiltOwner.name}'s hilt!");
+                CancelAttack();
+                _owner.ApplyKnockback(blockKnockbackDistance);
+            }
+            else if (otherSword != null && otherSword._isAttacking && !_isAttacking)
+            {
+                Debug.Log($"{hiltOwner.name}'s thrust was blocked by {_owner.name}'s hilt!");
+                otherSword.CancelAttack();
+                hiltOwner.ApplyKnockback(blockKnockbackDistance);
+            }
+            else
+            {
+                Debug.Log($"{_owner.name} and {hiltOwner.name} clashed hilts!");
+                if (_isAttacking) CancelAttack();
+                if (otherSword != null && otherSword._isAttacking) otherSword.CancelAttack();
+                _owner.ApplyKnockback(blockKnockbackDistance);
+                hiltOwner.ApplyKnockback(blockKnockbackDistance);
+            }
+            return;
+        }
+
+        // --- Blade-on-body hit ---
         if (!other.CompareTag("Player")) return;
 
         PlayerController victim = other.GetComponentInParent<PlayerController>();
         if (victim == null || victim == _owner) return;
 
-        if (GameManager.Instance != null && GameManager.Instance.currentState != GameManager.BoutState.Fencing)
+        // Cancel hit if blade is also touching victim's hilt (passed through guard)
+        HiltCollider victimHilt = victim.GetComponentInChildren<HiltCollider>();
+        if (victimHilt != null && Physics2D.IsTouching(_hitbox, victimHilt.GetComponent<Collider2D>()))
+        {
+            Debug.Log($"{_owner.name}'s blade hit {victim.name}'s body but was touching hilt — ignoring!");
             return;
+        }
 
         Debug.Log($"{_owner.name}'s blade contacted {victim.name}'s body");
         _hitLanded = true;
@@ -166,7 +289,7 @@ public class SwordAttack : MonoBehaviour
         GameManager.Instance.OnPlayerHit(_owner);
         Debug.Log($"{_owner.name} scored on {victim.name}");
     }
-    
+
     public void SetRightOfWayVisual(bool hasRightOfWay)
     {
         if (swordSprite == null)
