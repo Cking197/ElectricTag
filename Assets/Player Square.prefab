@@ -310,7 +310,7 @@ Transform:
   m_GameObject: {fileID: 4278188999297065768}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 1.36, y: 0.15, z: 3}
+  m_LocalPosition: {x: 0.53, y: -0.007, z: -2}
   m_LocalScale: {x: 12, y: 6, z: 3}
   m_ConstrainProportionsScale: 1
   m_Children:
@@ -436,9 +436,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SwordAttack
   swordSprite: {fileID: 3482920474670505943}
   restLocalPosition: {x: 0.4, y: 0.15}
-  thrustLocalPosition: {x: 1.25, y: 0.15}
+  pivotOffset: {x: -1, y: 0}
+  armLength: 1.25
+  windUpTime: 0.05
   thrustOutTime: 0.06
   thrustBackTime: 0.35
+  thrustDistance: 0.6
   blockKnockbackDistance: 0.4
 --- !u!1 &7440056001779038662
 GameObject:
@@ -467,7 +470,7 @@ Transform:
   m_GameObject: {fileID: 7440056001779038662}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.059486896, y: 0.020348892, z: -0.33333334}
+  m_LocalPosition: {x: 0.059486896, y: 0.020348892, z: 0}
   m_LocalScale: {x: 0.11904761, y: 0.11111112, z: 0.33333334}
   m_ConstrainProportionsScale: 0
   m_Children: []
