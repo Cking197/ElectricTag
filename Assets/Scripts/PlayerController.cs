@@ -207,6 +207,13 @@ public class PlayerController : MonoBehaviour
             _isStepping = true;
             _nextDashTime = Time.time + dashCooldownSeconds;
             _dashHeld = true;
+
+            NotifyMovementDirection(dashDirection);
+            if (GameManager.Instance != null &&
+                GameManager.Instance.currentState == GameManager.BoutState.Countdown)
+            {
+                GameManager.Instance.OnEarlyMovement(this);
+            }
         }
     }
 
@@ -273,6 +280,25 @@ public class PlayerController : MonoBehaviour
 
         _isStepping = true;
         _nextStepTime = Time.time + stepCooldownSeconds;
+
+        NotifyMovementDirection(direction);
+    }
+
+    private void NotifyMovementDirection(float movementX)
+    {
+        if (GameManager.Instance == null)
+            return;
+
+        float dot = movementX * _facingDirection;
+
+        if (dot > 0f)
+        {
+            GameManager.Instance.OnOffensiveAction(this);
+        }
+        else if (dot < 0f)
+        {
+            GameManager.Instance.OnRetreat(this);
+        }
     }
 
     // Trigger sword attack
@@ -286,6 +312,7 @@ public class PlayerController : MonoBehaviour
 
         Debug.Log($"Attack fired from {gameObject.name}");
         _sword.StartAttack();
+        GameManager.Instance.OnOffensiveAction(this);
     }
 
     // Trigger parry
@@ -358,6 +385,10 @@ public class PlayerController : MonoBehaviour
 
     public void ApplyKnockback(float distance)
     {
+        // Give up ROW on knockback
+        if (GameManager.Instance != null)
+            GameManager.Instance.OnRetreat(this);
+
         // Knock the player backward relative to their facing direction
         float knockbackDirection = -_facingDirection;
         _stepTarget = transform.position + new Vector3(knockbackDirection * distance, 0f, 0f);

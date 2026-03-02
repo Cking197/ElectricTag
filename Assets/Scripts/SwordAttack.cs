@@ -7,7 +7,7 @@ public class SwordAttack : MonoBehaviour
     [FormerlySerializedAs("_swordSprite")]
     [SerializeField]
     private SpriteRenderer swordSprite;
-    private Color _defaultColor = Color.white;
+    private Color _defaultColor = Color.black;
 
     [Header("Positions")]
     public Vector2 restLocalPosition = new Vector2(0.6f, 0f);   // Sword handle position relative to player when angle is 0
