@@ -211,6 +211,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 5891699538367778907, guid: 333de7d67911cd442874955f39fb22c1, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6475753938819974060, guid: 333de7d67911cd442874955f39fb22c1, type: 3}
       propertyPath: m_Name
       value: Strip

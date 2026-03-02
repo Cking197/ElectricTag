@@ -51,11 +51,13 @@ public class SwordAttack : MonoBehaviour
         _owner = transform.root.GetComponent<PlayerController>();
         _cachedZ = transform.position.z;
 
-        // Zero out local position — world position is fully driven by ApplyPivotPosition
+        // Zero out local position ï¿½ world position is fully driven by ApplyPivotPosition
         transform.localPosition = new Vector3(0f, 0f, transform.localPosition.z);
 
         if (swordSprite == null)
             swordSprite = GetComponentInChildren<SpriteRenderer>();
+        
+        _defaultColor= swordSprite.color;
     }
 
     void Start()
@@ -67,7 +69,7 @@ public class SwordAttack : MonoBehaviour
         Debug.Log($"{_owner?.name} sword Start: facingDir={_facingDirection}, cachedZ={_cachedZ}");
     }
 
-    // Called every frame by PlayerController via SetAngle — positions sword around pivot
+    // Called every frame by PlayerController via SetAngle ï¿½ positions sword around pivot
     public void SetAngle(float angleDegrees)
     {
         _currentAngle = angleDegrees;
@@ -149,7 +151,7 @@ public class SwordAttack : MonoBehaviour
         // Lock in the attack angle at the start
         _attackAngle = _currentAngle;
 
-        // Compute tip Y at rest angle — this is the Y the thrust will travel along
+        // Compute tip Y at rest angle ï¿½ this is the Y the thrust will travel along
         Vector2 forward = GetForward(_attackAngle);
         Vector2 handlePos = GetHandlePos(_attackAngle);
         float thrustY = handlePos.y + forward.y * bladeLength;
@@ -160,7 +162,7 @@ public class SwordAttack : MonoBehaviour
         float thrustStartX = GetHandlePos(_attackAngle).x;
         float thrustEndX = thrustStartX + _facingDirection * thrustDistance;
 
-        // --- Wind-up: smoothly rotate from current angle to 0° (straight) ---
+        // --- Wind-up: smoothly rotate from current angle to 0ï¿½ (straight) ---
         float t = 0f;
         while (t < windUpTime)
         {
@@ -265,7 +267,7 @@ public class SwordAttack : MonoBehaviour
         HiltCollider victimHilt = victim.GetComponentInChildren<HiltCollider>();
         if (victimHilt != null && Physics2D.IsTouching(_hitbox, victimHilt.GetComponent<Collider2D>()))
         {
-            Debug.Log($"{_owner.name}'s blade hit {victim.name}'s body but was touching hilt — ignoring!");
+            Debug.Log($"{_owner.name}'s blade hit {victim.name}'s body but was touching hilt ï¿½ ignoring!");
             return;
         }
 
