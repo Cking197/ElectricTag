@@ -4,11 +4,11 @@ using UnityEngine.Serialization;
 
 public class SwordAttack : MonoBehaviour
 {
-    
-    [FormerlySerializedAs("_swordSprite")] [SerializeField] 
+    [FormerlySerializedAs("_swordSprite")]
+    [SerializeField]
     private SpriteRenderer swordSprite;
     private Color _defaultColor = Color.black;
-    
+
     [Header("Positions")]
     public Vector2 restLocalPosition = new Vector2(0.6f, 0f);   // Default sword position
     public Vector2 thrustLocalPosition = new Vector2(1.2f, 0f); // Sword fully extended position
@@ -22,6 +22,9 @@ public class SwordAttack : MonoBehaviour
     private float _attackAngle = 0f;   // Angle locked in when attack starts
 
     public float AttackAngle => _attackAngle;
+
+    [Header("Blade Block")]
+    public float blockKnockbackDistance = 0.4f;     // How far attacker is knocked back on a blade block
 
     private bool _isAttacking;
     private bool _hitLanded;
@@ -54,18 +57,14 @@ public class SwordAttack : MonoBehaviour
     public void SetAngle(float angleDegrees)
     {
         _currentAngle = angleDegrees;
-
-        // Rotate the sword sprite around its pivot
         transform.localRotation = Quaternion.Euler(0f, 0f, angleDegrees);
     }
 
-    // Enable or disable the hitbox
+    // Enable or disable the body-hit hitbox
     public void SetHitboxEnabled(bool enabled)
     {
         if (_hitbox != null)
-        {
             _hitbox.enabled = enabled;
-        }
     }
 
     // Cancel an ongoing attack and reset sword
@@ -74,14 +73,10 @@ public class SwordAttack : MonoBehaviour
         if (!_isAttacking)
             return;
 
-        // Stop the thrust
         StopAllCoroutines();
 
-        // Reset state
         _isAttacking = false;
-        _hitbox.enabled = false;
 
-        // Snap sword back to rest position
         transform.localPosition = restLocalPosition;
 
         Debug.Log($"{_owner.name}'s attack was cancelled");
@@ -97,7 +92,7 @@ public class SwordAttack : MonoBehaviour
 
         // Calculate direction based on attack angle
         Vector2 direction = new Vector2(Mathf.Cos(_attackAngle * Mathf.Deg2Rad),
-                                         Mathf.Sin(_attackAngle * Mathf.Deg2Rad));
+                                        Mathf.Sin(_attackAngle * Mathf.Deg2Rad));
 
         // Thrust distance is how far we extend from rest
         float thrustDistance = thrustLocalPosition.magnitude;
@@ -113,7 +108,7 @@ public class SwordAttack : MonoBehaviour
 
         _isAttacking = false;
 
-        // If no hit or parry occurred, it's a miss
+        // If no hit or block occurred, it's a miss
         if (!_hitLanded && GameManager.Instance != null)
         {
             GameManager.Instance.OnAttackMissed(_owner);
@@ -125,26 +120,70 @@ public class SwordAttack : MonoBehaviour
     IEnumerator MoveSword(Vector2 from, Vector2 to, float duration)
     {
         float t = 0f;
-
         while (t < duration)
         {
             t += Time.deltaTime;
             transform.localPosition = Vector2.Lerp(from, to, t / duration);
             yield return null;
         }
-
         transform.localPosition = to;
     }
 
     void OnTriggerEnter2D(Collider2D other)
     {
+        if (GameManager.Instance != null && GameManager.Instance.currentState != GameManager.BoutState.Fencing)
+            return;
+
+        // --- Blade-on-hilt block ---
+        // Fires when this sword's blade collider hits the opponent's hilt child GameObject
+        HiltCollider hilt = other.GetComponent<HiltCollider>();
+        if (hilt != null)
+        {
+            // Make sure the hilt belongs to a different player
+            PlayerController hiltOwner = other.GetComponentInParent<PlayerController>();
+            if (hiltOwner == null || hiltOwner == _owner)
+                return;
+
+            SwordAttack otherSword = other.GetComponentInParent<SwordAttack>();
+
+            if (_isAttacking && (otherSword == null || !otherSword._isAttacking))
+            {
+                // This sword is attacking into an idle hilt — knock this owner back
+                Debug.Log($"{_owner.name}'s thrust was blocked by {hiltOwner.name}'s hilt!");
+                CancelAttack();
+                _owner.ApplyKnockback(blockKnockbackDistance);
+            }
+            else if (otherSword != null && otherSword._isAttacking && !_isAttacking)
+            {
+                // Other sword is attacking, this hilt is defending — knock other owner back
+                Debug.Log($"{hiltOwner.name}'s thrust was blocked by {_owner.name}'s hilt!");
+                otherSword.CancelAttack();
+                hiltOwner.ApplyKnockback(blockKnockbackDistance);
+            }
+            else
+            {
+                // Neither or both attacking — knock both back
+                Debug.Log($"{_owner.name} and {hiltOwner.name} clashed hilts!");
+                if (_isAttacking) CancelAttack();
+                if (otherSword != null && otherSword._isAttacking) otherSword.CancelAttack();
+                _owner.ApplyKnockback(blockKnockbackDistance);
+                hiltOwner.ApplyKnockback(blockKnockbackDistance);
+            }
+            return;
+        }
+
+        // --- Blade-on-body hit ---
         if (!other.CompareTag("Player")) return;
 
         PlayerController victim = other.GetComponentInParent<PlayerController>();
         if (victim == null || victim == _owner) return;
 
-        if (GameManager.Instance != null && GameManager.Instance.currentState != GameManager.BoutState.Fencing)
+        HiltCollider victimHilt = victim.GetComponentInChildren<HiltCollider>();
+        if (victimHilt != null && Physics2D.IsTouching(_hitbox, victimHilt.GetComponent<Collider2D>()))
+        {
+            Debug.Log($"{_owner.name}'s blade hit {victim.name}'s body but was touching hilt — ignoring!");
             return;
+        }
 
         Debug.Log($"{_owner.name}'s blade contacted {victim.name}'s body");
         _hitLanded = true;
@@ -166,7 +205,7 @@ public class SwordAttack : MonoBehaviour
         GameManager.Instance.OnPlayerHit(_owner);
         Debug.Log($"{_owner.name} scored on {victim.name}");
     }
-    
+
     public void SetRightOfWayVisual(bool hasRightOfWay)
     {
         if (swordSprite == null)

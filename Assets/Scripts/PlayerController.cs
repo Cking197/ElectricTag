@@ -276,8 +276,6 @@ public class PlayerController : MonoBehaviour
 
             // Map ±90° stick range to ±maxSwordAngleDegrees
             _currentSwordAngle = (clampedAngle / 90f) * maxSwordAngleDegrees;
-
-            Debug.Log($"{gameObject.name}: stick=({stickInput.x:F2},{stickInput.y:F2}), raw={Mathf.Atan2(stickInput.y, stickInput.x) * Mathf.Rad2Deg:F1}, adjusted={rawAngle:F1}, final={_currentSwordAngle:F1}");
         }
 
         // Apply rotation to sword
@@ -421,6 +419,17 @@ public class PlayerController : MonoBehaviour
         Vector3 scale = transform.localScale;
         scale.x = Mathf.Abs(scale.x) * direction;
         transform.localScale = scale;
+    }
+
+    public void ApplyKnockback(float distance)
+    {
+        // Knock the player backward relative to their facing direction
+        float knockbackDirection = -_facingDirection;
+        _stepTarget = transform.position + new Vector3(knockbackDirection * distance, 0f, 0f);
+        _stepSpeed = Mathf.Max(dashSpeed, distance / minStepDurationSeconds);
+        _isStepping = true;
+
+        Debug.Log($"{gameObject.name} knocked back {distance} units");
     }
 
     // Reset position, facing, and movement state
