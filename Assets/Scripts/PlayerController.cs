@@ -17,7 +17,7 @@ public class PlayerController : MonoBehaviour
     [Header("Spawn")]
     public float leftSpawnX = -2.4f;
     public float rightSpawnX = 2.4f;
-    public float spawnY = 0.5f;
+    public float spawnY = 1f;
     private Vector3 _spawnPosition;
     private int _facingDirection;
 

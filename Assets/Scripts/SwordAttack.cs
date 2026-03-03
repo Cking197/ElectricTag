@@ -4,35 +4,32 @@ using UnityEngine.Serialization;
 
 public class SwordAttack : MonoBehaviour
 {
-    [FormerlySerializedAs("_swordSprite")]
-    [SerializeField]
+    [FormerlySerializedAs("_swordSprite")] [SerializeField]
     private SpriteRenderer swordSprite;
+
     private Color _defaultColor = Color.black;
 
-    [Header("Positions")]
-    public Vector2 restLocalPosition = new Vector2(0.6f, 0f);   // Sword handle position relative to player when angle is 0
+    [Header("Positions")] public Vector2
+        restLocalPosition = new Vector2(0.6f, 0f); // Sword handle position relative to player when angle is 0
 
     [Header("Pivot")]
-    public Vector2 pivotOffset = new Vector2(-0.3f, 0f);        // Pivot (shoulder/arm) position relative to player center
-    public float armLength = 0.5f;                              // Distance from pivot to sword handle
+    public Vector2 pivotOffset = new Vector2(-0.3f, 0f); // Pivot (shoulder/arm) position relative to player center
 
-    [Header("Timing")]
-    public float windUpTime = 0.05f;      // Time to rotate sword to attack angle before thrusting
-    public float thrustOutTime = 0.08f;   // Time to extend sword
-    public float thrustBackTime = 0.12f;  // Time to retract sword (slower)
+    public float armLength = 0.5f; // Distance from pivot to sword handle
 
-    [Header("Thrust")]
-    public float thrustDistance = 0.6f;   // How far the sword extends on a thrust
-    public float bladeLength = 0.5f;      // Length of blade from handle to tip (used to compute thrust Y)
+    [Header("Timing")] public float windUpTime = 0.05f; // Time to rotate sword to attack angle before thrusting
+    public float thrustOutTime = 0.08f; // Time to extend sword
+    public float thrustBackTime = 0.12f; // Time to retract sword (slower)
 
-    [Header("Angling")]
-    private float _currentAngle = 0f;     // Current sword angle (set by right stick or attack input)
-    private float _attackAngle = 0f;      // Angle locked in when attack starts
+    [Header("Thrust")] public float thrustDistance = 0.6f; // How far the sword extends on a thrust
+    public float bladeLength = 0.5f; // Length of blade from handle to tip (used to compute thrust Y)
+
+    [Header("Angling")] private float _currentAngle = 0f; // Current sword angle (set by right stick or attack input)
+    private float _attackAngle = 0f; // Angle locked in when attack starts
 
     public float AttackAngle => _attackAngle;
 
-    [Header("Blade Block")]
-    public float blockKnockbackDistance = 0.4f;
+    [Header("Blade Block")] public float blockKnockbackDistance = 0.4f;
 
     private bool _isAttacking;
     private bool _hitLanded;
@@ -42,6 +39,15 @@ public class SwordAttack : MonoBehaviour
     private float _cachedZ;
 
     public bool IsAttacking => _isAttacking;
+    [SerializeField] private AudioSource audioSource;
+    [Header("Audio")] [SerializeField] private AudioClip[] clashClips;
+    private float _nextClashTime;
+    [SerializeField] private float clashCooldown = 0.05f;
+    [SerializeField] private AudioClip[] thrustClips;
+    [SerializeField] private float thrustCooldown = 0.05f;
+    private float _nextThrustTime;
+    private int _lastThrustIndex = -1;
+
 
     void Awake()
     {
@@ -51,11 +57,15 @@ public class SwordAttack : MonoBehaviour
         _owner = transform.root.GetComponent<PlayerController>();
         _cachedZ = transform.position.z;
 
-        // Zero out local position — world position is fully driven by ApplyPivotPosition
+        // Zero out local position ï¿½ world position is fully driven by ApplyPivotPosition
         transform.localPosition = new Vector3(0f, 0f, transform.localPosition.z);
 
         if (swordSprite == null)
             swordSprite = GetComponentInChildren<SpriteRenderer>();
+
+        _defaultColor = swordSprite.color;
+        audioSource.playOnAwake = false;
+        audioSource.spatialBlend = 0f; // 2D sound
     }
 
     void Start()
@@ -67,7 +77,7 @@ public class SwordAttack : MonoBehaviour
         Debug.Log($"{_owner?.name} sword Start: facingDir={_facingDirection}, cachedZ={_cachedZ}");
     }
 
-    // Called every frame by PlayerController via SetAngle — positions sword around pivot
+    // Called every frame by PlayerController via SetAngle ï¿½ positions sword around pivot
     public void SetAngle(float angleDegrees)
     {
         _currentAngle = angleDegrees;
@@ -145,11 +155,12 @@ public class SwordAttack : MonoBehaviour
     IEnumerator ThrustRoutine()
     {
         _isAttacking = true;
+        PlayThrust();
 
         // Lock in the attack angle at the start
         _attackAngle = _currentAngle;
 
-        // Compute tip Y at rest angle — this is the Y the thrust will travel along
+        // Compute tip Y at rest angle ï¿½ this is the Y the thrust will travel along
         Vector2 forward = GetForward(_attackAngle);
         Vector2 handlePos = GetHandlePos(_attackAngle);
         float thrustY = handlePos.y + forward.y * bladeLength;
@@ -160,7 +171,7 @@ public class SwordAttack : MonoBehaviour
         float thrustStartX = GetHandlePos(_attackAngle).x;
         float thrustEndX = thrustStartX + _facingDirection * thrustDistance;
 
-        // --- Wind-up: smoothly rotate from current angle to 0° (straight) ---
+        // --- Wind-up: smoothly rotate from current angle to 0ï¿½ (straight) ---
         float t = 0f;
         while (t < windUpTime)
         {
@@ -172,6 +183,7 @@ public class SwordAttack : MonoBehaviour
             ApplyDirectPosition(hp.x, blendedY, blendedAngle);
             yield return null;
         }
+
         ApplyDirectPosition(GetHandlePos(0f).x, thrustY, 0f);
 
         // Cache the straight handle X as thrust start
@@ -187,6 +199,7 @@ public class SwordAttack : MonoBehaviour
             ApplyDirectPosition(x, thrustY, 0f);
             yield return null;
         }
+
         ApplyDirectPosition(thrustEndX, thrustY, 0f);
 
         // --- Retract: arc back to rest angle/position ---
@@ -205,6 +218,7 @@ public class SwordAttack : MonoBehaviour
             ApplyDirectPosition(hp.x + GetForward(retractAngle).x * extension, retractY, retractAngle);
             yield return null;
         }
+
         ApplyPivotPosition(_attackAngle, 0f);
 
         _isAttacking = false;
@@ -226,6 +240,8 @@ public class SwordAttack : MonoBehaviour
         HiltCollider hilt = other.GetComponent<HiltCollider>();
         if (hilt != null)
         {
+            PlayClash();
+
             PlayerController hiltOwner = other.GetComponentInParent<PlayerController>();
             if (hiltOwner == null || hiltOwner == _owner)
                 return;
@@ -234,24 +250,22 @@ public class SwordAttack : MonoBehaviour
 
             if (_isAttacking && (otherSword == null || !otherSword._isAttacking))
             {
-                Debug.Log($"{_owner.name}'s thrust was blocked by {hiltOwner.name}'s hilt!");
                 CancelAttack();
                 _owner.ApplyKnockback(blockKnockbackDistance);
             }
             else if (otherSword != null && otherSword._isAttacking && !_isAttacking)
             {
-                Debug.Log($"{hiltOwner.name}'s thrust was blocked by {_owner.name}'s hilt!");
                 otherSword.CancelAttack();
                 hiltOwner.ApplyKnockback(blockKnockbackDistance);
             }
             else
             {
-                Debug.Log($"{_owner.name} and {hiltOwner.name} clashed hilts!");
                 if (_isAttacking) CancelAttack();
                 if (otherSword != null && otherSword._isAttacking) otherSword.CancelAttack();
                 _owner.ApplyKnockback(blockKnockbackDistance);
                 hiltOwner.ApplyKnockback(blockKnockbackDistance);
             }
+
             return;
         }
 
@@ -265,7 +279,7 @@ public class SwordAttack : MonoBehaviour
         HiltCollider victimHilt = victim.GetComponentInChildren<HiltCollider>();
         if (victimHilt != null && Physics2D.IsTouching(_hitbox, victimHilt.GetComponent<Collider2D>()))
         {
-            Debug.Log($"{_owner.name}'s blade hit {victim.name}'s body but was touching hilt — ignoring!");
+            Debug.Log($"{_owner.name}'s blade hit {victim.name}'s body but was touching hilt ï¿½ ignoring!");
             return;
         }
 
@@ -296,5 +310,56 @@ public class SwordAttack : MonoBehaviour
             return;
 
         swordSprite.color = hasRightOfWay ? Color.yellow : _defaultColor;
+    }
+
+    private int PlayRandomClip(
+        AudioClip[] clips,
+        ref float nextTime,
+        float cooldown,
+        ref int lastIndex,
+        float minPitch = 0.95f,
+        float maxPitch = 1.05f)
+    {
+        if (audioSource == null || clips == null || clips.Length == 0)
+            return -1;
+
+        if (Time.time < nextTime)
+            return -1;
+
+        nextTime = Time.time + cooldown;
+
+        int index;
+        do
+        {
+            index = Random.Range(0, clips.Length);
+        } while (index == lastIndex && clips.Length > 1);
+
+        lastIndex = index;
+
+        audioSource.pitch = Random.Range(minPitch, maxPitch);
+        audioSource.PlayOneShot(clips[index]);
+
+        return index;
+    }
+
+    private int _lastClashIndex = -1;
+
+    private void PlayClash()
+    {
+        PlayRandomClip(
+            clashClips,
+            ref _nextClashTime,
+            clashCooldown,
+            ref _lastClashIndex);
+    }
+
+    private void PlayThrust()
+    {
+        PlayRandomClip(
+            thrustClips,
+            ref _nextThrustTime,
+            thrustCooldown,
+            ref _lastThrustIndex,
+            0.98f, 1.02f); // tighter pitch for thrust
     }
 }
