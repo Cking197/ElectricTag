@@ -574,6 +574,7 @@ MonoBehaviour:
   thrustDistance: 0.9
   bladeLength: 0.8
   blockKnockbackDistance: 0.4
+  audioSource: {fileID: 6033118027818075345}
   clashClips:
   - {fileID: 8300000, guid: 5701ae2b4180ea045902b020e5b1d4b1, type: 3}
   clashCooldown: 0.05

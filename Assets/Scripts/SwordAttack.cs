@@ -39,9 +39,8 @@ public class SwordAttack : MonoBehaviour
     private float _cachedZ;
 
     public bool IsAttacking => _isAttacking;
-
+    [SerializeField] private AudioSource audioSource;
     [Header("Audio")] [SerializeField] private AudioClip[] clashClips;
-    private AudioSource _audioSource;
     private float _nextClashTime;
     [SerializeField] private float clashCooldown = 0.05f;
     [SerializeField] private AudioClip[] thrustClips;
@@ -65,9 +64,8 @@ public class SwordAttack : MonoBehaviour
             swordSprite = GetComponentInChildren<SpriteRenderer>();
 
         _defaultColor = swordSprite.color;
-        _audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
-        _audioSource.playOnAwake = false;
-        _audioSource.spatialBlend = 0f; // 2D sound
+        audioSource.playOnAwake = false;
+        audioSource.spatialBlend = 0f; // 2D sound
     }
 
     void Start()
@@ -322,7 +320,7 @@ public class SwordAttack : MonoBehaviour
         float minPitch = 0.95f,
         float maxPitch = 1.05f)
     {
-        if (_audioSource == null || clips == null || clips.Length == 0)
+        if (audioSource == null || clips == null || clips.Length == 0)
             return -1;
 
         if (Time.time < nextTime)
@@ -338,8 +336,8 @@ public class SwordAttack : MonoBehaviour
 
         lastIndex = index;
 
-        _audioSource.pitch = Random.Range(minPitch, maxPitch);
-        _audioSource.PlayOneShot(clips[index]);
+        audioSource.pitch = Random.Range(minPitch, maxPitch);
+        audioSource.PlayOneShot(clips[index]);
 
         return index;
     }
