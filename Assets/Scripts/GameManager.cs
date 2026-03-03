@@ -2,14 +2,25 @@ using UnityEngine;
 using TMPro;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.UI;
 using UnityEngine.Serialization;
 
 public class GameManager : MonoBehaviour
 {
-    [Header("References")] public static GameManager Instance; // Singleton reference
-    public TextMeshProUGUI player1ScoreUI; // Player 1 score display
-    public TextMeshProUGUI player2ScoreUI; // Player 2 score display
-    public TextMeshProUGUI countdownText; // Countdown or referee messages
+    [Header("UI References")] public GameObject Player1UI;
+    public GameObject Player2UI;
+    public TextMeshProUGUI countdownText;
+    public static GameManager Instance; // Singleton reference
+
+    [Header("Score")] private TextMeshProUGUI _player1ScoreUI; // Player 1 score display
+    private TextMeshProUGUI _player2ScoreUI; // Player 2 score display
+
+    [Header("Card UI")] private Image _p1WarningIcon;
+    private Image _p1YellowIcon;
+    private Image _p1RedIcon;
+    private Image _p2WarningIcon;
+    private Image _p2YellowIcon;
+    private Image _p2RedIcon;
 
     [Header("Player State")] private int _player1Score;
     private int _player2Score;
@@ -41,7 +52,16 @@ public class GameManager : MonoBehaviour
     public enum ScoreReason
     {
         Attack,
-        OutOfBounds
+        OutOfBounds,
+        RedCard
+    }
+
+    public enum CardLevel
+    {
+        None,
+        Warning,
+        Yellow,
+        Red
     }
 
     public BoutState currentState = BoutState.WaitingForPlayers;
@@ -55,18 +75,44 @@ public class GameManager : MonoBehaviour
     private bool _falseStartTriggered;
     private PlayerController _falseStartOffender;
 
+    private Dictionary<PlayerController, CardLevel> _cardStates =
+        new Dictionary<PlayerController, CardLevel>();
+
     void Awake()
     {
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
+
+        // set score texts
+        _player1ScoreUI = Player1UI.transform.Find("Score").GetComponent<TextMeshProUGUI>();
+        _player2ScoreUI = Player2UI.transform.Find("Score").GetComponent<TextMeshProUGUI>();
+
+        // set card icons
+        _p1WarningIcon = Player1UI.transform.Find("Warning").GetComponent<Image>();
+        _p1YellowIcon = Player1UI.transform.Find("Yellow").GetComponent<Image>();
+        _p1RedIcon = Player1UI.transform.Find("Red").GetComponent<Image>();
+        _p2WarningIcon = Player2UI.transform.Find("Warning").GetComponent<Image>();
+        _p2YellowIcon = Player2UI.transform.Find("Yellow").GetComponent<Image>();
+        _p2RedIcon = Player2UI.transform.Find("Red").GetComponent<Image>();
+
+        _p1WarningIcon.enabled = false;
+        _p1YellowIcon.enabled = false;
+        _p1RedIcon.enabled = false;
+
+        _p2WarningIcon.enabled = false;
+        _p2YellowIcon.enabled = false;
+        _p2RedIcon.enabled = false;
     }
 
-    // Register player and start countdown when 2 players exist
+// Register player and start countdown when 2 players exist
     public void RegisterPlayer(PlayerController player)
     {
         if (_registeredPlayers.Contains(player)) return;
 
         _registeredPlayers.Add(player);
+
+        if (!_cardStates.ContainsKey(player))
+            _cardStates[player] = CardLevel.None;
 
         if (_registeredPlayers.Count == 2)
         {
@@ -74,7 +120,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // Determines if players are allowed to move
+// Determines if players are allowed to move
     public bool CanPlayersMove()
     {
         if (Time.time < _movementLockUntil)
@@ -88,7 +134,7 @@ public class GameManager : MonoBehaviour
         _movementLockUntil = Mathf.Max(_movementLockUntil, Time.time + seconds);
     }
 
-    // Called when a player moves during countdown (potential false start)
+// Called when a player moves during countdown (potential false start)
     public void OnEarlyMovement(PlayerController offender)
     {
         if (currentState != BoutState.Countdown || _falseStartTriggered)
@@ -107,28 +153,61 @@ public class GameManager : MonoBehaviour
         _falseStartRoutine = StartCoroutine(FalseStartRoutine());
     }
 
-    // Handles false start sequence
+// Handles false start sequence
     IEnumerator FalseStartRoutine()
     {
         currentState = BoutState.Resolving;
 
-        if (countdownText != null)
-        {
-            countdownText.gameObject.SetActive(true);
-            countdownText.text = "HALT";
-            countdownText.color = Color.red;
-        }
+        countdownText.gameObject.SetActive(true);
+        countdownText.text = "HALT";
+        countdownText.color = Color.red;
 
         yield return new WaitForSeconds(0.6f);
 
-        if (countdownText != null)
+        PlayerController offender = _falseStartOffender;
+        bool isLeft = offender.name == "Player1";
+        string side = isLeft ? "LEFT" : "RIGHT";
+
+        CardLevel currentLevel = _cardStates[offender];
+
+        switch (currentLevel)
         {
-            string side = _falseStartOffender.name == "Player1" ? "LEFT" : "RIGHT";
-            countdownText.text = $"FALSE START {side}";
-            countdownText.color = Color.red;
+            case CardLevel.None:
+                _cardStates[offender] = CardLevel.Warning;
+                countdownText.text = $"WARNING FOR {side}";
+                UpdateCardUI(offender, CardLevel.Warning);
+                break;
+
+            case CardLevel.Warning:
+                _cardStates[offender] = CardLevel.Yellow;
+                countdownText.text = $"YELLOW CARD ON {side}";
+                UpdateCardUI(offender, CardLevel.Yellow);
+                break;
+
+            case CardLevel.Yellow:
+            case CardLevel.Red:
+                _cardStates[offender] = CardLevel.Red;
+                countdownText.text = $"RED CARD ON {side}";
+                UpdateCardUI(offender, CardLevel.Red);
+
+                PlayerController opponent =
+                    _registeredPlayers.Find(p => p != offender);
+
+                if (opponent != null)
+                {
+                    yield return StartCoroutine(
+                        HaltAndScoreRoutine(opponent, ScoreReason.RedCard, offender));
+                }
+
+                // exit completely — HaltAndScoreRoutine already restarted the bout
+                _falseStartTriggered = false;
+                _falseStartOffender = null;
+                yield break;
         }
 
-        yield return new WaitForSeconds(0.9f);
+        countdownText.color = Color.red;
+
+        yield return new WaitForSeconds(1.2f);
 
         ResetAllPlayers();
         yield return new WaitForSeconds(0.5f);
@@ -139,7 +218,7 @@ public class GameManager : MonoBehaviour
         StartCountdown();
     }
 
-    // Starts the countdown routine
+// Starts the countdown routine
     public void StartCountdown()
     {
         if (_countdownRoutine != null)
@@ -148,12 +227,11 @@ public class GameManager : MonoBehaviour
         _countdownRoutine = StartCoroutine(CountdownRoutine());
     }
 
-    // Countdown display before fencing begins
+// Countdown display before fencing begins
     IEnumerator CountdownRoutine()
     {
         currentState = BoutState.Settling;
-
-        ResetAllPlayers();
+        
         yield return new WaitForSeconds(0.6f);
 
         currentState = BoutState.Countdown;
@@ -218,7 +296,7 @@ public class GameManager : MonoBehaviour
                 HaltAndScoreRoutine(scorer, ScoreReason.Attack));
     }
 
-    // Called when a player scores
+// Called when a player scores
     public void OnPlayerHit(PlayerController attacker)
     {
         if (currentState != BoutState.Fencing || _falseStartTriggered || _haltRoutine != null)
@@ -231,7 +309,7 @@ public class GameManager : MonoBehaviour
             _hitResolutionRoutine = StartCoroutine(ResolveHitsAfterWindow());
     }
 
-    // Called when a player successfully parries an attack
+// Called when a player successfully parries an attack
     public void OnSuccessfulParry(PlayerController attacker, PlayerController parrier)
     {
         if (currentState != BoutState.Fencing || _falseStartTriggered || _haltRoutine != null)
@@ -244,7 +322,7 @@ public class GameManager : MonoBehaviour
         AssignRightOfWay(parrier);
     }
 
-    // Handles halt, scoring, and reset after a touch
+// Handles halt, scoring, and reset after a touch
     IEnumerator HaltAndScoreRoutine(
         PlayerController scorer,
         ScoreReason reason,
@@ -269,25 +347,41 @@ public class GameManager : MonoBehaviour
         else
             _player2Score++;
 
-        player1ScoreUI.text = _player1Score.ToString();
-        player2ScoreUI.text = _player2Score.ToString();
+        _player1ScoreUI.text = _player1Score.ToString();
+        _player2ScoreUI.text = _player2Score.ToString();
 
         // Determine announcement side
-        string side;
+        string leftRightForScorer = scorerIsLeft ? "LEFT" : "RIGHT";
+        string message = "";
 
-        if (reason == ScoreReason.OutOfBounds && offender != null)
+        switch (reason)
         {
-            bool offenderIsLeft = offender.name == "Player1";
-            side = offenderIsLeft ? "LEFT" : "RIGHT";
+            case ScoreReason.Attack:
+                message = $"ATTACK {leftRightForScorer}";
+                break;
 
-            countdownText.text = $"OUT {side}";
-        }
-        else
-        {
-            side = scorerIsLeft ? "LEFT" : "RIGHT";
-            countdownText.text = $"ATTACK {side}";
+            case ScoreReason.OutOfBounds:
+                if (offender != null)
+                {
+                    bool offenderIsLeft = offender.name == "Player1";
+                    string offenderSide = offenderIsLeft ? "LEFT" : "RIGHT";
+                    message = $"OUT {offenderSide}";
+                }
+
+                break;
+
+            case ScoreReason.RedCard:
+                if (offender != null)
+                {
+                    bool offenderIsLeft = offender.name == "Player1";
+                    string offenderSide = offenderIsLeft ? "LEFT" : "RIGHT";
+                    message = $"RED {offenderSide}";
+                }
+
+                break;
         }
 
+        countdownText.text = message;
         countdownText.color = Color.red;
 
         yield return new WaitForSeconds(1.2f);
@@ -300,7 +394,7 @@ public class GameManager : MonoBehaviour
         StartCountdown();
     }
 
-    // Resets all players to spawn positions
+// Resets all players to spawn positions
     void ResetAllPlayers()
     {
         LockMovement(resetMovementLockSeconds);
@@ -446,5 +540,20 @@ public class GameManager : MonoBehaviour
         {
             _haltRoutine = StartCoroutine(HaltAndScoreRoutine(opponent, ScoreReason.OutOfBounds, offender));
         }
+    }
+
+    private void UpdateCardUI(PlayerController player, CardLevel level)
+    {
+        bool isLeft = player.name == "Player1";
+
+        Image warning = isLeft ? _p1WarningIcon : _p2WarningIcon;
+        Image yellow = isLeft ? _p1YellowIcon : _p2YellowIcon;
+        Image red = isLeft ? _p1RedIcon : _p2RedIcon;
+
+        // Stacking version (recommended)
+        warning.enabled = level >= CardLevel.Warning;
+        yellow.enabled = level >= CardLevel.Yellow;
+        red.enabled = level >= CardLevel.Red;
+        Debug.Log("Updating UI for: " + player.name);
     }
 }
