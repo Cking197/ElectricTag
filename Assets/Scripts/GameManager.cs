@@ -7,7 +7,8 @@ using UnityEngine.Serialization;
 
 public class GameManager : MonoBehaviour
 {
-    [Header("UI References")] public GameObject Player1UI;
+    [Header("UI References")] 
+    public GameObject Player1UI;
     public GameObject Player2UI;
     public TextMeshProUGUI countdownText;
     public static GameManager Instance; // Singleton reference
@@ -39,6 +40,14 @@ public class GameManager : MonoBehaviour
     private List<PlayerController> _pendingHitAttackers = new List<PlayerController>();
     private Coroutine _hitResolutionRoutine;
     public float simultaneousHitWindow = 0.12f;
+    
+    [FormerlySerializedAs("_audioSource")]
+    [Header("Audio")]
+    [SerializeField] private AudioSource audioSource;
+    [SerializeField] private AudioClip enGardeClip;
+    [SerializeField] private AudioClip readyClip;
+    [SerializeField] private AudioClip fenceClip;
+    [SerializeField] private AudioClip haltClip;
 
     public enum BoutState
     {
@@ -81,7 +90,6 @@ public class GameManager : MonoBehaviour
     void Awake()
     {
         if (Instance == null) Instance = this;
-        else Destroy(gameObject);
 
         // set score texts
         _player1ScoreUI = Player1UI.transform.Find("Score").GetComponent<TextMeshProUGUI>();
@@ -118,6 +126,12 @@ public class GameManager : MonoBehaviour
         {
             StartCountdown();
         }
+    }
+    
+    private void PlaySound(AudioClip clip)
+    {
+        if (audioSource != null && clip != null)
+            audioSource.PlayOneShot(clip);
     }
 
 // Determines if players are allowed to move
@@ -160,6 +174,7 @@ public class GameManager : MonoBehaviour
 
         countdownText.gameObject.SetActive(true);
         countdownText.text = "HALT";
+        PlaySound(haltClip);
         countdownText.color = Color.red;
 
         yield return new WaitForSeconds(0.6f);
@@ -231,34 +246,35 @@ public class GameManager : MonoBehaviour
     IEnumerator CountdownRoutine()
     {
         currentState = BoutState.Settling;
-        
+
         yield return new WaitForSeconds(0.6f);
 
         currentState = BoutState.Countdown;
 
-        if (countdownText != null)
-        {
-            countdownText.gameObject.SetActive(true);
-            countdownText.text = "En Garde...";
-            countdownText.color = Color.white;
-        }
+        countdownText.gameObject.SetActive(true);
 
+        // EN GARDE
+        countdownText.text = "En Garde...";
+        countdownText.color = Color.white;
+        PlaySound(enGardeClip);
         yield return new WaitForSeconds(0.9f);
 
-        if (countdownText != null)
-            countdownText.text = "Ready...";
+        // READY
+        countdownText.text = "Ready...";
         countdownText.color = Color.yellow;
+        PlaySound(readyClip);
         yield return new WaitForSeconds(0.9f);
 
-        if (countdownText != null)
-            countdownText.text = "FENCE!";
+        // FENCE
+        countdownText.text = "FENCE!";
         countdownText.color = Color.green;
+        PlaySound(fenceClip);
 
         currentState = BoutState.Fencing;
+
         yield return new WaitForSeconds(1.0f);
 
-        if (countdownText != null)
-            countdownText.gameObject.SetActive(false);
+        countdownText.gameObject.SetActive(false);
 
         _countdownRoutine = null;
     }
@@ -336,6 +352,8 @@ public class GameManager : MonoBehaviour
             countdownText.text = "HALT";
             countdownText.color = Color.red;
         }
+        
+        PlaySound(haltClip);
 
         yield return new WaitForSeconds(0.9f);
 
