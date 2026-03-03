@@ -187,7 +187,7 @@ public class GameManager : MonoBehaviour
             case CardLevel.Yellow:
             case CardLevel.Red:
                 _cardStates[offender] = CardLevel.Red;
-                countdownText.text = $"RED CARD ON{side}";
+                countdownText.text = $"RED CARD ON {side}";
                 UpdateCardUI(offender, CardLevel.Red);
 
                 PlayerController opponent =
@@ -199,7 +199,10 @@ public class GameManager : MonoBehaviour
                         HaltAndScoreRoutine(opponent, ScoreReason.RedCard, offender));
                 }
 
-                break;
+                // exit completely — HaltAndScoreRoutine already restarted the bout
+                _falseStartTriggered = false;
+                _falseStartOffender = null;
+                yield break;
         }
 
         countdownText.color = Color.red;
@@ -228,8 +231,7 @@ public class GameManager : MonoBehaviour
     IEnumerator CountdownRoutine()
     {
         currentState = BoutState.Settling;
-
-        ResetAllPlayers();
+        
         yield return new WaitForSeconds(0.6f);
 
         currentState = BoutState.Countdown;

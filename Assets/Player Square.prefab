@@ -133,7 +133,7 @@ MonoBehaviour:
   swordAngleActionName: SwordAngle
   leftSpawnX: -2.4
   rightSpawnX: 2.4
-  spawnY: 0.5
+  spawnY: 1
   stepDistance: 0.16
   fastStepDistance: 0.24
   dashDistance: 1
