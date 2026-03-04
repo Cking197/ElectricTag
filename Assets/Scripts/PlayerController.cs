@@ -310,6 +310,9 @@ public class PlayerController : MonoBehaviour
         if (_isStunned)
             return;
 
+        if (_isParrying)
+            return;
+
         Debug.Log($"Attack fired from {gameObject.name}");
         _sword.StartAttack();
         GameManager.Instance.OnOffensiveAction(this);

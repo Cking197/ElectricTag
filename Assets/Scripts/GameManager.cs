@@ -333,7 +333,6 @@ public class GameManager : MonoBehaviour
 
         Debug.Log($"{parrier.name} parried {attacker.name} - stunning attacker");
 
-        attacker.ApplyStun(parryStunDuration);
         attacker.CancelAttack();
         AssignRightOfWay(parrier);
     }
@@ -446,7 +445,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private void AssignRightOfWay(PlayerController player)
+    public void AssignRightOfWay(PlayerController player)
     {
         if (_rightOfWayHolder == player)
         {
