@@ -329,6 +329,12 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 42947971594459706, guid: 49e213fb964ca3849aa0f17d38e30a52, type: 3}
+      propertyPath: m_text
+      value: 'Waiting for Players.
+
+        Player LEFT press any button to join'
+      objectReference: {fileID: 0}
     - target: {fileID: 5085761100026892847, guid: 49e213fb964ca3849aa0f17d38e30a52, type: 3}
       propertyPath: m_Name
       value: GameManager
@@ -373,14 +379,6 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 7112088470436832611, guid: 49e213fb964ca3849aa0f17d38e30a52, type: 3}
-      propertyPath: m_fontAsset
-      value: 
-      objectReference: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-    - target: {fileID: 7112088470436832611, guid: 49e213fb964ca3849aa0f17d38e30a52, type: 3}
-      propertyPath: m_sharedMaterial
-      value: 
-      objectReference: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

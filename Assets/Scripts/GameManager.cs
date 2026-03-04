@@ -122,6 +122,8 @@ public class GameManager : MonoBehaviour
         if (!_cardStates.ContainsKey(player))
             _cardStates[player] = CardLevel.None;
 
+        countdownText.text = "Waiting for Players.\nPlayer RIGHT press any button to join";
+
         if (_registeredPlayers.Count == 2)
         {
             StartCountdown();
