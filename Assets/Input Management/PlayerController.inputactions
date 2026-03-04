@@ -111,13 +111,49 @@
             ]
         },
         {
-            "name": "Other",
-            "id": "ec411bef-4605-4748-a739-657b09d75d63",
+            "name": "Menu",
+            "id": "fe77447c-e99f-4111-9619-1fef57831e6a",
             "actions": [
                 {
-                    "name": "New action",
+                    "name": "Navigate",
+                    "type": "Value",
+                    "id": "d7283fb8-274d-424c-9b00-71430ddbe032",
+                    "expectedControlType": "Vector2",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                },
+                {
+                    "name": "Submit",
                     "type": "Button",
-                    "id": "b6cb9b61-76a4-4bc9-9e1c-02a997df03ff",
+                    "id": "8b15fa39-0ecf-463f-9ca2-ed98db7bba68",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Cancel",
+                    "type": "Button",
+                    "id": "52f97113-b6f6-43a0-8bab-6b90e47ab7cc",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Point",
+                    "type": "Value",
+                    "id": "eca6024e-f425-4842-ba3f-b879ae96bb24",
+                    "expectedControlType": "Vector2",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                },
+                {
+                    "name": "Click",
+                    "type": "Button",
+                    "id": "516c2c16-70e3-4139-b5f5-48197dcf635f",
                     "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
@@ -127,12 +163,67 @@
             "bindings": [
                 {
                     "name": "",
-                    "id": "f4c607cb-6a68-4686-a00a-7fc27becb0e0",
-                    "path": "",
+                    "id": "bea9941e-c956-48fc-8e6b-07444141bdeb",
+                    "path": "<Gamepad>/leftStick",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "New action",
+                    "action": "Navigate",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "8f91344f-fbbb-467f-9566-1bbe9ae25a57",
+                    "path": "<Gamepad>/dpad",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Navigate",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "0dc0984e-6ef2-4bb7-bacf-ca0cdc713ec5",
+                    "path": "<Gamepad>/buttonSouth",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Submit",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "1e00256c-7dbd-4b1b-9a91-46e47f880b1d",
+                    "path": "<Gamepad>/buttonEast",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Cancel",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "a585d4e4-11dd-4757-a579-2d17c81a99ca",
+                    "path": "<Mouse>/position",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Point",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "324781a0-8981-4d0d-aeee-0d7e18f2ffb0",
+                    "path": "<Mouse>/leftButton",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Click",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }
