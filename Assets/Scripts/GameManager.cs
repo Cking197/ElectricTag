@@ -176,10 +176,7 @@ public class GameManager : MonoBehaviour
 
         countdownText.gameObject.SetActive(true);
         countdownText.text = "HALT";
-        PlaySound(haltClip);
-        countdownText.color = Color.red;
-
-        yield return new WaitForSeconds(0.6f);
+        
 
         PlayerController offender = _falseStartOffender;
         bool isLeft = offender.name == "Player1";
@@ -190,19 +187,26 @@ public class GameManager : MonoBehaviour
         switch (currentLevel)
         {
             case CardLevel.None:
+                PlaySound(haltClip); 
+                yield return new WaitForSeconds(0.6f);
                 _cardStates[offender] = CardLevel.Warning;
                 countdownText.text = $"WARNING FOR {side}";
                 UpdateCardUI(offender, CardLevel.Warning);
+                
                 break;
 
-            case CardLevel.Warning:
+            case CardLevel.Warning: 
+                PlaySound(haltClip);
+                yield return new WaitForSeconds(0.6f);
                 _cardStates[offender] = CardLevel.Yellow;
                 countdownText.text = $"YELLOW CARD ON {side}";
                 UpdateCardUI(offender, CardLevel.Yellow);
+               
                 break;
 
             case CardLevel.Yellow:
             case CardLevel.Red:
+                //no play sound since covered by halt and score
                 _cardStates[offender] = CardLevel.Red;
                 countdownText.text = $"RED CARD ON {side}";
                 UpdateCardUI(offender, CardLevel.Red);
