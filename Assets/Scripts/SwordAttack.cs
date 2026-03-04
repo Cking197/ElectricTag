@@ -32,6 +32,7 @@ public class SwordAttack : MonoBehaviour
     [Header("Blade Block")] public float blockKnockbackDistance = 0.4f;
 
     private bool _isAttacking;
+    private static float _nextBlockTime;
     private bool _hitLanded;
     private BoxCollider2D _hitbox;
     private PlayerController _owner;
@@ -202,6 +203,8 @@ public class SwordAttack : MonoBehaviour
 
         ApplyDirectPosition(thrustEndX, thrustY, 0f);
 
+        yield return null; // Brief pause at full extension before retracting
+
         // --- Retract: arc back to rest angle/position ---
         t = 0f;
         while (t < thrustBackTime)
@@ -221,14 +224,14 @@ public class SwordAttack : MonoBehaviour
 
         ApplyPivotPosition(_attackAngle, 0f);
 
-        _isAttacking = false;
-
         // If no hit occurred, it's a miss
         if (!_hitLanded && GameManager.Instance != null)
         {
             GameManager.Instance.OnAttackMissed(_owner);
             Debug.Log($"{_owner.name}'s attack missed!");
         }
+
+        _isAttacking = false;
     }
 
     void OnTriggerEnter2D(Collider2D other)
@@ -240,30 +243,69 @@ public class SwordAttack : MonoBehaviour
         HiltCollider hilt = other.GetComponent<HiltCollider>();
         if (hilt != null)
         {
+            if (Time.time < _nextBlockTime) return;
+            _nextBlockTime = Time.time + 0.1f;
+
             PlayClash();
 
             PlayerController hiltOwner = other.GetComponentInParent<PlayerController>();
+
             if (hiltOwner == null || hiltOwner == _owner)
                 return;
 
             SwordAttack otherSword = other.GetComponentInParent<SwordAttack>();
 
+            Debug.Log($"Hilt contact: _owner={_owner.name}, hiltOwner={hiltOwner.name}, _isAttacking={_isAttacking}, otherSword={otherSword.name}, otherSword._isAttacking={otherSword.IsAttacking}");
+
             if (_isAttacking && (otherSword == null || !otherSword._isAttacking))
             {
+                if (hiltOwner.IsInParryWindow() && hiltOwner.DoesParryMatchAttack(_attackAngle))
+                {
+                    Debug.Log($"{hiltOwner.name} SUCCESSFULLY PARRIED {_owner.name}'s attack!");
+                    GameManager.Instance.OnSuccessfulParry(_owner, hiltOwner);
+                    CancelAttack();
+                    _owner.ApplyKnockback(blockKnockbackDistance);
+                    return;
+                }
+
+                Debug.Log($"{_owner.name} ATTACKED {hiltOwner.name}'s HILT but was blocked!");
+
                 CancelAttack();
                 _owner.ApplyKnockback(blockKnockbackDistance);
+                hiltOwner.ApplyKnockback(blockKnockbackDistance * 0.25f);
+                GameManager.Instance.AssignRightOfWay(hiltOwner);
             }
             else if (otherSword != null && otherSword._isAttacking && !_isAttacking)
             {
                 otherSword.CancelAttack();
                 hiltOwner.ApplyKnockback(blockKnockbackDistance);
+                _owner.ApplyKnockback(blockKnockbackDistance * 0.25f);
+                GameManager.Instance.AssignRightOfWay(_owner);
+                Debug.Log($"{hiltOwner.name} ATTACKED {_owner.name}'s HILT but was blocked!");
+            }
+            else if (_isAttacking && otherSword != null && otherSword._isAttacking)
+            {
+                CancelAttack();
+                otherSword.CancelAttack();
+                _owner.ApplyKnockback(blockKnockbackDistance);
+                hiltOwner.ApplyKnockback(blockKnockbackDistance);
+                Debug.Log($"Both players attacked and were blocked by each others' hilts!");
+                // Both knocked back, RoW cleared via OnRetreat in ApplyKnockback
             }
             else
             {
-                if (_isAttacking) CancelAttack();
-                if (otherSword != null && otherSword._isAttacking) otherSword.CancelAttack();
-                _owner.ApplyKnockback(blockKnockbackDistance);
-                hiltOwner.ApplyKnockback(blockKnockbackDistance);
+                if (hiltOwner.IsInParryWindow() && hiltOwner.DoesParryMatchAttack(_attackAngle))
+                {
+                    Debug.Log($"{hiltOwner.name} SUCCESSFULLY PARRIED {_owner.name}'s passive contact!");
+                    GameManager.Instance.OnSuccessfulParry(_owner, hiltOwner);
+                    _owner.ApplyKnockback(blockKnockbackDistance);
+                    return;
+                }
+
+                Debug.Log($"Passive contact! Minimal pushback!");
+
+                _owner.ApplyKnockback(blockKnockbackDistance * 0.25f);
+                hiltOwner.ApplyKnockback(blockKnockbackDistance * 0.25f);
             }
 
             return;
@@ -279,26 +321,12 @@ public class SwordAttack : MonoBehaviour
         HiltCollider victimHilt = victim.GetComponentInChildren<HiltCollider>();
         if (victimHilt != null && Physics2D.IsTouching(_hitbox, victimHilt.GetComponent<Collider2D>()))
         {
-            Debug.Log($"{_owner.name}'s blade hit {victim.name}'s body but was touching hilt � ignoring!");
+            Debug.Log($"{_owner.name}'s blade hit {victim.name}'s body but was touching hilt — ignoring!");
             return;
         }
 
         Debug.Log($"{_owner.name}'s blade contacted {victim.name}'s body");
         _hitLanded = true;
-
-        if (victim.IsInParryWindow())
-        {
-            if (victim.DoesParryMatchAttack(_attackAngle))
-            {
-                Debug.Log($"{victim.name} SUCCESSFULLY PARRIED {_owner.name}'s attack!");
-                GameManager.Instance.OnSuccessfulParry(_owner, victim);
-                return;
-            }
-            else
-            {
-                Debug.Log($"{victim.name} parried but WRONG ANGLE!");
-            }
-        }
 
         GameManager.Instance.OnPlayerHit(_owner);
         Debug.Log($"{_owner.name} scored on {victim.name}");
