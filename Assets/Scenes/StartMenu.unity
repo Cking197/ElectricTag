@@ -325,6 +325,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: GameSession
       objectReference: {fileID: 0}
+    - target: {fileID: 3497113891734727634, guid: 087218536b8a0ed4c954d9cee060f9a6, type: 3}
+      propertyPath: startSceneName
+      value: StartMenu
+      objectReference: {fileID: 0}
     - target: {fileID: 7494468334284318097, guid: 087218536b8a0ed4c954d9cee060f9a6, type: 3}
       propertyPath: m_LocalPosition.x
       value: 1183.4413

@@ -4,6 +4,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.UI;
 using UnityEngine.Serialization;
+using UnityEngine.SceneManagement;
+
 
 public class GameManager : MonoBehaviour
 {
@@ -257,7 +259,10 @@ public class GameManager : MonoBehaviour
 
         currentState = BoutState.Countdown;
 
-        countdownText.gameObject.SetActive(true);
+        if (currentState == BoutState.Fencing)
+        {
+            countdownText.gameObject.SetActive(false);
+        }
 
         // EN GARDE
         countdownText.text = "En Garde...";
@@ -349,6 +354,14 @@ public class GameManager : MonoBehaviour
         ScoreReason reason,
         PlayerController offender = null)
     {
+        
+        // Stop countdown if it is still running
+        if (_countdownRoutine != null)
+        {
+            StopCoroutine(_countdownRoutine);
+            _countdownRoutine = null;
+        }
+        
         currentState = BoutState.Resolving;
 
         if (countdownText != null)
@@ -372,6 +385,20 @@ public class GameManager : MonoBehaviour
 
         _player1ScoreUI.text = _player1Score.ToString();
         _player2ScoreUI.text = _player2Score.ToString();
+
+        int targetScore = GameSession.Instance.boutLength;
+
+        if (_player1Score >= targetScore)
+        {
+            yield return StartCoroutine(VictoryRoutine(_registeredPlayers.Find(p => p.name == "Player1")));
+            yield break;
+        }
+
+        if (_player2Score >= targetScore)
+        {
+            yield return StartCoroutine(VictoryRoutine(_registeredPlayers.Find(p => p.name == "Player2")));
+            yield break;
+        }
 
         // Determine announcement side
         string leftRightForScorer = scorerIsLeft ? "LEFT" : "RIGHT";
@@ -579,4 +606,21 @@ public class GameManager : MonoBehaviour
         red.enabled = level >= CardLevel.Red;
         Debug.Log("Updating UI for: " + player.name);
     }
+    
+    private IEnumerator VictoryRoutine(PlayerController winner)
+    {
+        currentState = BoutState.Resolving;
+
+        bool winnerIsLeft = winner.name == "Player1";
+        string side = winnerIsLeft ? "LEFT" : "RIGHT";
+
+        countdownText.gameObject.SetActive(true);
+        countdownText.color = Color.yellow;
+        countdownText.text = $"VICTORY {side}!";
+
+        yield return new WaitForSeconds(3f);
+
+        SceneManager.LoadScene(GameSession.Instance.startSceneName);
+    }
+
 }

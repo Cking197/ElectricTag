@@ -492,7 +492,9 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Electric Tag
+  m_text: 'ELECTRIC TAG
+
+'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: efb6c1ccd5c2105449e1078e9241318d, type: 2}
   m_sharedMaterial: {fileID: -7263761156456654406, guid: efb6c1ccd5c2105449e1078e9241318d, type: 2}
