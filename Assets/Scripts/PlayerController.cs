@@ -82,6 +82,8 @@ public class PlayerController : MonoBehaviour
 
     [Header("Animation")]
     public float reactionDuration = 0.2f;
+    public float dashLingerSeconds = 0.15f;
+    private float _dashLingerUntil;
 
     private int _currentAnimState = -1;
     private bool _isReacting;
@@ -90,12 +92,21 @@ public class PlayerController : MonoBehaviour
 
     private Animator _animator;
 
+    [Header("Walk Cycle")]
+    public Sprite walkSprite1;
+    public Sprite walkSprite2;
+    public int walkFrameInterval = 40;  // frames between sprite swaps
+    private SpriteRenderer _bodySpriteRenderer;
+    private int _walkFrameCounter;
+    private bool _walkSpriteToggle;
+
     void Awake()
     {
         _playerInput = GetComponent<PlayerInput>();
         _sword = GetComponentInChildren<SwordAttack>();
         _rb = GetComponent<Rigidbody2D>();
         _animator = GetComponent<Animator>();
+        _bodySpriteRenderer = GetComponent<SpriteRenderer>();
     }
 
     void OnEnable()
@@ -217,6 +228,27 @@ public class PlayerController : MonoBehaviour
         _animator.Play(stateHash);
     }
 
+    private void TickWalkCycle(bool walking)
+    {
+        if (!walking || walkSprite1 == null || walkSprite2 == null || _bodySpriteRenderer == null)
+        {
+            // Reset to sprite1 when not walking
+            if (_bodySpriteRenderer != null && walkSprite1 != null)
+                _bodySpriteRenderer.sprite = walkSprite1;
+            _walkFrameCounter = 0;
+            _walkSpriteToggle = false;
+            return;
+        }
+
+        _walkFrameCounter++;
+        if (_walkFrameCounter >= walkFrameInterval)
+        {
+            _walkFrameCounter = 0;
+            _walkSpriteToggle = !_walkSpriteToggle;
+            _bodySpriteRenderer.sprite = _walkSpriteToggle ? walkSprite2 : walkSprite1;
+        }
+    }
+
     // Called every frame — highest priority wins, falls through to lower
     private void UpdateAnimator(float speed)
     {
@@ -224,8 +256,8 @@ public class PlayerController : MonoBehaviour
 
         if (IsAttacking) { PlayAnimState(StateAttack); return; }
         if (_isReacting) { PlayAnimState(StateReact); return; }
-        if (_isLunging) { PlayAnimState(StateLunge); return; }
-        if (_isBackdashing) { PlayAnimState(StateBackdash); return; }
+        if (_isLunging || (!_isBackdashing && Time.time < _dashLingerUntil && _currentAnimState == StateLunge)) { PlayAnimState(StateLunge); return; }
+        if (_isBackdashing || (Time.time < _dashLingerUntil && _currentAnimState == StateBackdash)) { PlayAnimState(StateBackdash); return; }
         if (Mathf.Abs(speed) > 0.1f) { PlayAnimState(StateWalk); return; }
         PlayAnimState(StateIdle);
     }

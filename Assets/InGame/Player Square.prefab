@@ -172,6 +172,9 @@ MonoBehaviour:
   maxSwordAngleDegrees: 15
   parryAngleToleranceDegrees: 7.5
   reactionDuration: 0.5
+  walkSprite1: {fileID: 5826479529469629657, guid: 64d2134b32862ca46908214fc0cb1633, type: 3}
+  walkSprite2: {fileID: -7133230849722980620, guid: 647241d98ef434f48957222eb09b457d, type: 3}
+  walkFrameInterval: 65
 --- !u!212 &5166759941191950690
 SpriteRenderer:
   serializedVersion: 2
