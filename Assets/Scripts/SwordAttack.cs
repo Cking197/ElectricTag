@@ -1,15 +1,18 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine.Serialization;
 
 public class SwordAttack : MonoBehaviour
 {
-    [FormerlySerializedAs("_swordSprite")] [SerializeField]
+    [FormerlySerializedAs("_swordSprite")]
+    [SerializeField]
     private SpriteRenderer swordSprite;
 
     private Color _defaultColor = Color.black;
 
-    [Header("Positions")] public Vector2
+    [Header("Positions")]
+    public Vector2
         restLocalPosition = new Vector2(0.6f, 0f); // Sword handle position relative to player when angle is 0
 
     [Header("Pivot")]
@@ -41,13 +44,16 @@ public class SwordAttack : MonoBehaviour
 
     public bool IsAttacking => _isAttacking;
     [SerializeField] private AudioSource audioSource;
-    [Header("Audio")] [SerializeField] private AudioClip[] clashClips;
+    [Header("Audio")][SerializeField] private AudioClip[] clashClips;
     private float _nextClashTime;
     [SerializeField] private float clashCooldown = 0.05f;
     [SerializeField] private AudioClip[] thrustClips;
     [SerializeField] private float thrustCooldown = 0.05f;
     private float _nextThrustTime;
     private int _lastThrustIndex = -1;
+
+    // Tracks colliders whose trigger logic has already been handled this contact
+    private readonly HashSet<Collider2D> _activeCollisions = new HashSet<Collider2D>();
 
 
     void Awake()
@@ -58,7 +64,7 @@ public class SwordAttack : MonoBehaviour
         _owner = transform.root.GetComponent<PlayerController>();
         _cachedZ = transform.position.z;
 
-        // Zero out local position � world position is fully driven by ApplyPivotPosition
+        // Zero out local position — world position is fully driven by ApplyPivotPosition
         transform.localPosition = new Vector3(0f, 0f, transform.localPosition.z);
 
         if (swordSprite == null)
@@ -78,7 +84,7 @@ public class SwordAttack : MonoBehaviour
         Debug.Log($"{_owner?.name} sword Start: facingDir={_facingDirection}, cachedZ={_cachedZ}");
     }
 
-    // Called every frame by PlayerController via SetAngle � positions sword around pivot
+    // Called every frame by PlayerController via SetAngle — positions sword around pivot
     public void SetAngle(float angleDegrees)
     {
         _currentAngle = angleDegrees;
@@ -161,7 +167,7 @@ public class SwordAttack : MonoBehaviour
         // Lock in the attack angle at the start
         _attackAngle = _currentAngle;
 
-        // Compute tip Y at rest angle � this is the Y the thrust will travel along
+        // Compute tip Y at rest angle — this is the Y the thrust will travel along
         Vector2 forward = GetForward(_attackAngle);
         Vector2 handlePos = GetHandlePos(_attackAngle);
         float thrustY = handlePos.y + forward.y * bladeLength;
@@ -172,7 +178,7 @@ public class SwordAttack : MonoBehaviour
         float thrustStartX = GetHandlePos(_attackAngle).x;
         float thrustEndX = thrustStartX + _facingDirection * thrustDistance;
 
-        // --- Wind-up: smoothly rotate from current angle to 0� (straight) ---
+        // --- Wind-up: smoothly rotate from current angle to 0° (straight) ---
         float t = 0f;
         while (t < windUpTime)
         {
@@ -232,9 +238,34 @@ public class SwordAttack : MonoBehaviour
         }
 
         _isAttacking = false;
+        _owner?.NotifyAttackFinished();
     }
 
     void OnTriggerEnter2D(Collider2D other)
+    {
+        // Always clear the cached state for this collider on a fresh Enter,
+        // so re-entries (e.g. after a brief separation) are treated as new contacts.
+        _activeCollisions.Remove(other);
+        HandleTriggerContact(other);
+    }
+
+    void OnTriggerStay2D(Collider2D other)
+    {
+        // Only re-run logic if this collider hasn't been handled yet this contact.
+        if (_activeCollisions.Contains(other)) return;
+        HandleTriggerContact(other);
+    }
+
+    void OnTriggerExit2D(Collider2D other)
+    {
+        // Clean up so the next Enter starts fresh.
+        _activeCollisions.Remove(other);
+    }
+
+    // Core contact logic — called from OnTriggerEnter2D and OnTriggerStay2D.
+    // Records `other` in _activeCollisions once a decisive action is taken so
+    // Stay callbacks don't repeat it.
+    private void HandleTriggerContact(Collider2D other)
     {
         if (GameManager.Instance != null && GameManager.Instance.currentState != GameManager.BoutState.Fencing)
             return;
@@ -243,6 +274,11 @@ public class SwordAttack : MonoBehaviour
         HiltCollider hilt = other.GetComponent<HiltCollider>();
         if (hilt != null)
         {
+            // Mark handled immediately — Stay shouldn't retry regardless of whether
+            // the cooldown lets this instance act. The static _nextBlockTime still
+            // prevents both swords from acting on the same contact.
+            _activeCollisions.Add(other);
+
             if (Time.time < _nextBlockTime) return;
             _nextBlockTime = Time.time + 0.1f;
 
@@ -272,6 +308,7 @@ public class SwordAttack : MonoBehaviour
 
                 CancelAttack();
                 _owner.ApplyKnockback(blockKnockbackDistance);
+                _owner.NotifyHiltReaction();
                 hiltOwner.ApplyKnockback(blockKnockbackDistance * 0.25f);
                 GameManager.Instance.AssignRightOfWay(hiltOwner);
             }
@@ -279,6 +316,7 @@ public class SwordAttack : MonoBehaviour
             {
                 otherSword.CancelAttack();
                 hiltOwner.ApplyKnockback(blockKnockbackDistance);
+                hiltOwner.NotifyHiltReaction();
                 _owner.ApplyKnockback(blockKnockbackDistance * 0.25f);
                 GameManager.Instance.AssignRightOfWay(_owner);
                 Debug.Log($"{hiltOwner.name} ATTACKED {_owner.name}'s HILT but was blocked!");
@@ -288,7 +326,9 @@ public class SwordAttack : MonoBehaviour
                 CancelAttack();
                 otherSword.CancelAttack();
                 _owner.ApplyKnockback(blockKnockbackDistance);
+                _owner.NotifyHiltReaction();
                 hiltOwner.ApplyKnockback(blockKnockbackDistance);
+                hiltOwner.NotifyHiltReaction();
                 Debug.Log($"Both players attacked and were blocked by each others' hilts!");
                 // Both knocked back, RoW cleared via OnRetreat in ApplyKnockback
             }
@@ -324,6 +364,9 @@ public class SwordAttack : MonoBehaviour
             Debug.Log($"{_owner.name}'s blade hit {victim.name}'s body but was touching hilt — ignoring!");
             return;
         }
+
+        // Mark as handled so Stay doesn't fire again until Exit+Enter
+        _activeCollisions.Add(other);
 
         Debug.Log($"{_owner.name}'s blade contacted {victim.name}'s body");
         _hitLanded = true;
