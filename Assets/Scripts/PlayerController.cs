@@ -1,13 +1,15 @@
 using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System.Collections;
+
 public class PlayerController : MonoBehaviour
 {
     [Header("Input")]
-    public string moveActionName = "Move";           // Name of movement action
-    public string fastStepActionName = "FastStepToggle"; // Name of fast step toggle
-    public string parryActionName = "Parry"; // Name of parry action
-    public string swordAngleActionName = "SwordAngle";  // et cetera
+    public string moveActionName = "Move";
+    public string fastStepActionName = "FastStepToggle";
+    public string parryActionName = "Parry";
+    public string swordAngleActionName = "SwordAngle";
     private PlayerInput _playerInput;
     private InputAction _moveAction;
     private InputAction _fastStepAction;
@@ -33,26 +35,28 @@ public class PlayerController : MonoBehaviour
     public float deadzone = 0.2f;
     public float moderateSpeed = 1.4f;
     public float fastSpeed = 2.2f;
-    public float dashSpeed = 5f;
+    public float dashSpeed = 6f;            // Minimum speed floor for dash movement
+    public float knockbackDuration = 0.15f; // Duration of knockback travel — increase to slow it down
+    public float minPlayerSeparation = 0.5f; // Tune to half a player width in world units
 
     [Header("Combat State")]
     private bool _isParrying;
     private float _parryActiveUntil;
-    public float parryWindowSeconds = 0.2f;   // Active time
-    public float parryCooldownSeconds = 0.4f; // Cooldown before you can parry again
+    public float parryWindowSeconds = 0.2f;
+    public float parryCooldownSeconds = 0.4f;
     private float _nextParryTime;
     private bool _isStunned;
     private float _stunnedUntil;
-    private float _parryAngle = 0f;  // angle locked in on parry
-    public float ParryAngle => _parryAngle;  // getter
+    private float _parryAngle = 0f;
+    public float ParryAngle => _parryAngle;
 
     [Header("Sword Angling")]
     public float maxSwordAngleDegrees = 37.5f;
     private float _currentSwordAngle = 0f;
     public float parryAngleToleranceDegrees = 25f;
 
-    public float CurrentSwordAngle => _currentSwordAngle;  // Public getter
-    public int FacingDirection => _facingDirection;             // Public getter
+    public float CurrentSwordAngle => _currentSwordAngle;
+    public int FacingDirection => _facingDirection;
 
     private bool _isStepping;
     private Vector3 _stepTarget;
@@ -68,11 +72,30 @@ public class PlayerController : MonoBehaviour
     private Rigidbody2D _rb;
     private SwordAttack _sword;
 
+    // Animator state name constants — match these exactly in the Animator Controller
+    private static readonly int StateIdle = Animator.StringToHash("Idle");
+    private static readonly int StateWalk = Animator.StringToHash("Walk");
+    private static readonly int StateAttack = Animator.StringToHash("Attack");
+    private static readonly int StateLunge = Animator.StringToHash("Lunge");
+    private static readonly int StateBackdash = Animator.StringToHash("Backdash");
+    private static readonly int StateReact = Animator.StringToHash("React");
+
+    [Header("Animation")]
+    public float reactionDuration = 0.2f;
+
+    private int _currentAnimState = -1;
+    private bool _isReacting;
+    private bool _isLunging;
+    private bool _isBackdashing;
+
+    private Animator _animator;
+
     void Awake()
     {
         _playerInput = GetComponent<PlayerInput>();
         _sword = GetComponentInChildren<SwordAttack>();
         _rb = GetComponent<Rigidbody2D>();
+        _animator = GetComponent<Animator>();
     }
 
     void OnEnable()
@@ -136,15 +159,13 @@ public class PlayerController : MonoBehaviour
                 SetPlayerColor(Color.white);
 
                 if (_sword != null)
-                {
                     _sword.SetHitboxEnabled(true);
-                }
 
                 Debug.Log($"{gameObject.name} stun ended");
             }
             else
             {
-                // Still stunned - can't do anything
+                UpdateAnimator(0f);
                 return;
             }
         }
@@ -152,12 +173,7 @@ public class PlayerController : MonoBehaviour
         if (gameManager != null && !gameManager.CanPlayersMove())
         {
             _isStepping = false;
-            return;
-        }
-
-        if (gameManager != null && !gameManager.CanPlayersMove())
-        {
-            _isStepping = false;
+            UpdateAnimator(0f);
             return;
         }
 
@@ -170,16 +186,20 @@ public class PlayerController : MonoBehaviour
         TryHandleDash(absAxis, axis);
 
         if (UpdateStepMovement())
+        {
+            float animSpeed = (_isLunging || _isBackdashing) ? 0f : ((_stepTarget.x - transform.position.x) * _facingDirection >= 0f ? absAxis : -absAxis);
+            UpdateAnimator(animSpeed);
             return;
+        }
+
+        UpdateAnimator(0f);
 
         if (Time.time < _nextStepTime)
             return;
 
-        // Ignore small input
         if (absAxis < deadzone)
             return;
 
-        // Flag false start if moving during countdown, but still allow movement
         if (gameManager != null && gameManager.currentState == GameManager.BoutState.Countdown)
             gameManager.OnEarlyMovement(this);
 
@@ -187,6 +207,34 @@ public class PlayerController : MonoBehaviour
         bool isFullStick = absAxis >= fullStickThreshold;
 
         StartStep(direction, isFullStick);
+    }
+
+    // Plays a state immediately if it isn't already playing
+    private void PlayAnimState(int stateHash)
+    {
+        if (_animator == null || _currentAnimState == stateHash) return;
+        _currentAnimState = stateHash;
+        _animator.Play(stateHash);
+    }
+
+    // Called every frame — highest priority wins, falls through to lower
+    private void UpdateAnimator(float speed)
+    {
+        if (_animator == null) return;
+
+        if (IsAttacking) { PlayAnimState(StateAttack); return; }
+        if (_isReacting) { PlayAnimState(StateReact); return; }
+        if (_isLunging) { PlayAnimState(StateLunge); return; }
+        if (_isBackdashing) { PlayAnimState(StateBackdash); return; }
+        if (Mathf.Abs(speed) > 0.1f) { PlayAnimState(StateWalk); return; }
+        PlayAnimState(StateIdle);
+    }
+
+    // Called by SwordAttack at the end of ThrustRoutine so the lunge clip resets
+    public void NotifyAttackFinished()
+    {
+        // Force re-evaluation on next UpdateAnimator call
+        _currentAnimState = -1;
     }
 
     private void TryHandleDash(float absAxis, float axis)
@@ -208,6 +256,10 @@ public class PlayerController : MonoBehaviour
             _nextDashTime = Time.time + dashCooldownSeconds;
             _dashHeld = true;
 
+            bool isForward = (dashDirection * _facingDirection) > 0f;
+            _isLunging = isForward;
+            _isBackdashing = !isForward;
+
             NotifyMovementDirection(dashDirection);
             if (GameManager.Instance != null &&
                 GameManager.Instance.currentState == GameManager.BoutState.Countdown)
@@ -222,50 +274,68 @@ public class PlayerController : MonoBehaviour
         if (!_isStepping)
             return false;
 
+        // Clamp step target to maintain minimum separation from opponent
+        PlayerController opponent = GetOpponent();
+        if (opponent != null)
+        {
+            float opponentX = opponent.transform.position.x;
+            // The closest X we're allowed to reach, facing the opponent
+            float clampedX = opponentX - _facingDirection * minPlayerSeparation;
+            // Only clamp if moving toward the opponent
+            if (_facingDirection == 1)
+                _stepTarget.x = Mathf.Min(_stepTarget.x, clampedX);
+            else
+                _stepTarget.x = Mathf.Max(_stepTarget.x, clampedX);
+        }
+
         transform.position = Vector3.MoveTowards(transform.position, _stepTarget, _stepSpeed * Time.deltaTime);
 
-        if (transform.position == _stepTarget)
+        if (Vector3.SqrMagnitude(transform.position - _stepTarget) < 0.0001f)
+        {
+            transform.position = _stepTarget;
             _isStepping = false;
+            _isLunging = false;
+            _isBackdashing = false;
+        }
 
         return true;
     }
 
-    // Update visual state based on current player state
+    private PlayerController GetOpponent()
+    {
+        if (GameManager.Instance == null) return null;
+        foreach (var p in GameManager.Instance.RegisteredPlayers)
+        {
+            if (p != this) return p;
+        }
+        return null;
+    }
+
     private void UpdateVisualState()
     {
         if (_isStunned)
-        {
             SetPlayerColor(Color.red);
-        }
-        else if (_isParrying)
-        {
-            SetPlayerColor(Color.green);
-        }
+        // else if (_isParrying)
+        // SetPlayerColor(Color.green);
         else
-        {
             SetPlayerColor(Color.white);
-        }
     }
 
-    // Update sword angle based on right stick input
     private void UpdateSwordAngle()
     {
         if (_swordAngleAction == null || _sword == null)
             return;
 
-        // Can't change angle while attacking
         if (IsAttacking)
             return;
 
         Vector2 stickInput = _swordAngleAction.ReadValue<Vector2>();
 
-        // Map stick Y directly to sword angle: up = positive angle, down = negative
         if (stickInput.magnitude < 0.2f)
             _currentSwordAngle = 0f;
         else
             _currentSwordAngle = stickInput.y * maxSwordAngleDegrees;
 
-        // Apply rotation to sword
         _sword.SetAngle(_currentSwordAngle);
     }
 
@@ -292,25 +362,17 @@ public class PlayerController : MonoBehaviour
         float dot = movementX * _facingDirection;
 
         if (dot > 0f)
-        {
             GameManager.Instance.OnOffensiveAction(this);
-        }
         else if (dot < 0f)
-        {
             GameManager.Instance.OnRetreat(this);
-        }
     }
 
-    // Trigger sword attack
     public void OnAttack(InputAction.CallbackContext context)
     {
         if (!context.performed || _sword == null)
             return;
 
-        if (_isStunned)
-            return;
-
-        if (_isParrying)
+        if (_isStunned || _isParrying)
             return;
 
         Debug.Log($"Attack fired from {gameObject.name}");
@@ -318,16 +380,12 @@ public class PlayerController : MonoBehaviour
         GameManager.Instance.OnOffensiveAction(this);
     }
 
-    // Trigger parry
     public void OnParry(InputAction.CallbackContext context)
     {
         if (!context.performed)
             return;
 
-        if (_isStunned)
-            return;
-
-        if (IsAttacking)
+        if (_isStunned || IsAttacking)
             return;
 
         if (Time.time < _nextParryTime)
@@ -342,29 +400,18 @@ public class PlayerController : MonoBehaviour
         UpdateVisualState();
     }
 
-    // Helper for external parry check
     public bool IsInParryWindow()
     {
-        bool yes_or_no = _isParrying && Time.time < _parryActiveUntil;
-        if (yes_or_no)
-        {
-            Debug.Log($"{gameObject.name} parry checked, they are parrying");
-        }
-        else
-        {
-            Debug.Log($"{gameObject.name} parry checked, they are not parrying");
-        }
-        return yes_or_no;
+        bool result = _isParrying && Time.time < _parryActiveUntil;
+        Debug.Log($"{gameObject.name} parry checked, they are {(result ? "" : "not ")}parrying");
+        return result;
     }
 
-    // Check if a parry angle matches an attack angle relative to tolerance
     public bool DoesParryMatchAttack(float attackAngle)
     {
         float angleDifference = Mathf.Abs(Mathf.DeltaAngle(_parryAngle, attackAngle));
         bool matches = angleDifference <= parryAngleToleranceDegrees;
-
         Debug.Log($"{gameObject.name} parry check: parry={_parryAngle}°, attack={attackAngle}°, diff={angleDifference}°, matches={matches}");
-
         return matches;
     }
 
@@ -374,50 +421,38 @@ public class PlayerController : MonoBehaviour
         _stunnedUntil = Time.time + duration;
 
         if (_sword != null)
-        {
             _sword.SetHitboxEnabled(false);
-        }
 
-        // Stop any movement
         _isStepping = false;
-
         UpdateVisualState();
-
         Debug.Log($"{gameObject.name} stunned for {duration} seconds");
     }
 
     public void ApplyKnockback(float distance)
     {
-        // Give up ROW on knockback
         if (GameManager.Instance != null)
             GameManager.Instance.OnRetreat(this);
 
-        // Knock the player backward relative to their facing direction
         float knockbackDirection = -_facingDirection;
         _stepTarget = transform.position + new Vector3(knockbackDirection * distance, 0f, 0f);
-        _stepSpeed = Mathf.Max(dashSpeed, distance / minStepDurationSeconds);
+        _stepSpeed = Mathf.Max(dashSpeed, distance / knockbackDuration);
         _isStepping = true;
 
         Debug.Log($"{gameObject.name} knocked back {distance} units");
     }
 
-    // Change player color
     private void SetPlayerColor(Color color)
     {
-        SpriteRenderer player = GetComponent<SpriteRenderer>();
-        player.color = color;
+        SpriteRenderer sr = GetComponent<SpriteRenderer>();
+        if (sr != null) sr.color = color;
     }
 
-    // Cancel ongoing attack
     public void CancelAttack()
     {
         if (_sword != null)
-        {
             _sword.CancelAttack();
-        }
     }
 
-    // Adjust player facing
     private void SetFacingDirection(int direction)
     {
         Vector3 scale = transform.localScale;
@@ -425,7 +460,6 @@ public class PlayerController : MonoBehaviour
         transform.localScale = scale;
     }
 
-    // Reset position, facing, and movement state
     public void ResetPlayer()
     {
         _isStepping = false;
@@ -439,9 +473,7 @@ public class PlayerController : MonoBehaviour
 
         SpriteRenderer[] allSprites = GetComponentsInChildren<SpriteRenderer>();
         foreach (SpriteRenderer sprite in allSprites)
-        {
             sprite.enabled = true;
-        }
 
         transform.position = _spawnPosition;
         SetFacingDirection(_facingDirection);
@@ -451,10 +483,32 @@ public class PlayerController : MonoBehaviour
         UpdateVisualState();
 
         if (_sword != null)
-        {
             _sword.SetHitboxEnabled(true);
-        }
+
+        _isLunging = false;
+        _isBackdashing = false;
+        _isReacting = false;
+        _currentAnimState = -1;
+        if (_animator != null)
+            _animator.Play(StateIdle);
     }
+
+    public void NotifyHiltReaction()
+    {
+        if (_animator == null) return;
+        StopCoroutine("ReactionRoutine");
+        StartCoroutine("ReactionRoutine");
+    }
+
+    private IEnumerator ReactionRoutine()
+    {
+        _isReacting = true;
+        _currentAnimState = -1;
+        yield return new WaitForSeconds(reactionDuration);
+        _isReacting = false;
+        _currentAnimState = -1;
+    }
+
     public void NotifyRightOfWayChanged(bool hasRoW)
     {
         if (_sword != null)

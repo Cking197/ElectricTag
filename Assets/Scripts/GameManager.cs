@@ -29,6 +29,8 @@ public class GameManager : MonoBehaviour
     private int _player2Score;
     private List<PlayerController> _registeredPlayers = new List<PlayerController>();
 
+    public List<PlayerController> RegisteredPlayers => _registeredPlayers;
+
     [Header("Movement Lock")] public float resetMovementLockSeconds = 0.1f;
     private float _movementLockUntil;
 
@@ -386,7 +388,7 @@ public class GameManager : MonoBehaviour
         _player1ScoreUI.text = _player1Score.ToString();
         _player2ScoreUI.text = _player2Score.ToString();
 
-        int targetScore = GameSession.Instance.boutLength;
+        int targetScore = GameSession.Instance != null ? GameSession.Instance.boutLength : 5;
 
         if (_player1Score >= targetScore)
         {
