@@ -117,7 +117,7 @@ public class StartMenuController : MonoBehaviour
     {
 
         Debug.Log("Selected 15 touch bout");
-        LoadGameScene(5);
+        LoadGameScene(15);
     }
     
     public void LoadGameScene(int boutLength = 5)

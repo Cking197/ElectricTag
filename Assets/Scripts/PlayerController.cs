@@ -49,6 +49,9 @@ public class PlayerController : MonoBehaviour
     private float _stunnedUntil;
     private float _parryAngle = 0f;
     public float ParryAngle => _parryAngle;
+    [Tooltip("How long the attacker is locked out of attacking after being parried.")]
+    public float parryAttackLockSeconds = 0.5f;
+    private float _attackLockedUntil;
 
     [Header("Sword Angling")]
     public float maxSwordAngleDegrees = 37.5f;
@@ -157,6 +160,7 @@ public class PlayerController : MonoBehaviour
         {
             _isParrying = false;
             UpdateVisualState();
+            _sword?.SetParrySprite(false);
             Debug.Log($"Parry from {gameObject.name} stopped");
         }
 
@@ -404,7 +408,7 @@ public class PlayerController : MonoBehaviour
         if (!context.performed || _sword == null)
             return;
 
-        if (_isStunned || _isParrying)
+        if (_isStunned || _isParrying || Time.time < _attackLockedUntil)
             return;
 
         Debug.Log($"Attack fired from {gameObject.name}");
@@ -429,6 +433,7 @@ public class PlayerController : MonoBehaviour
         _parryActiveUntil = Time.time + parryWindowSeconds;
         _nextParryTime = Time.time + parryCooldownSeconds;
         _parryAngle = _currentSwordAngle;
+        _sword?.SetParrySprite(true);
         UpdateVisualState();
     }
 
@@ -445,6 +450,12 @@ public class PlayerController : MonoBehaviour
         bool matches = angleDifference <= parryAngleToleranceDegrees;
         Debug.Log($"{gameObject.name} parry check: parry={_parryAngle}°, attack={attackAngle}°, diff={angleDifference}°, matches={matches}");
         return matches;
+    }
+
+    public void LockAttack(float duration)
+    {
+        _attackLockedUntil = Mathf.Max(_attackLockedUntil, Time.time + duration);
+        Debug.Log($"{gameObject.name} attack locked for {duration}s");
     }
 
     public void ApplyStun(float duration)
@@ -512,6 +523,8 @@ public class PlayerController : MonoBehaviour
 
         _isStunned = false;
         _isParrying = false;
+        _attackLockedUntil = 0f;
+        _sword?.SetParrySprite(false);
         UpdateVisualState();
 
         if (_sword != null)

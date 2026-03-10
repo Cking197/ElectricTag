@@ -11,6 +11,10 @@ public class SwordAttack : MonoBehaviour
 
     private Color _defaultColor = Color.black;
 
+    [Header("Parry Sprites")]
+    public Sprite restSprite;
+    public Sprite parrySprite;
+
     [Header("Positions")]
     public Vector2
         restLocalPosition = new Vector2(0.6f, 0f); // Sword handle position relative to player when angle is 0
@@ -33,6 +37,8 @@ public class SwordAttack : MonoBehaviour
     public float AttackAngle => _attackAngle;
 
     [Header("Blade Block")] public float blockKnockbackDistance = 0.4f;
+    [Tooltip("Multiplier applied to attacker's knockback when they hit a parrying defender (0 = no pushback, 1 = full).")]
+    [Range(0f, 1f)] public float parryAttackerKnockbackMultiplier = 0.25f;
 
     private bool _isAttacking;
     private static float _nextBlockTime;
@@ -280,7 +286,7 @@ public class SwordAttack : MonoBehaviour
             _activeCollisions.Add(other);
 
             if (Time.time < _nextBlockTime) return;
-            _nextBlockTime = Time.time + 0.1f;
+            _nextBlockTime = Time.time + 0.03f;
 
             PlayClash();
 
@@ -300,7 +306,6 @@ public class SwordAttack : MonoBehaviour
                     Debug.Log($"{hiltOwner.name} SUCCESSFULLY PARRIED {_owner.name}'s attack!");
                     GameManager.Instance.OnSuccessfulParry(_owner, hiltOwner);
                     CancelAttack();
-                    _owner.ApplyKnockback(blockKnockbackDistance);
                     return;
                 }
 
@@ -314,6 +319,14 @@ public class SwordAttack : MonoBehaviour
             }
             else if (otherSword != null && otherSword._isAttacking && !_isAttacking)
             {
+                if (_owner.IsInParryWindow() && _owner.DoesParryMatchAttack(otherSword._attackAngle))
+                {
+                    Debug.Log($"{_owner.name} SUCCESSFULLY PARRIED {hiltOwner.name}'s attack! (defender-side check)");
+                    GameManager.Instance.OnSuccessfulParry(hiltOwner, _owner);
+                    otherSword.CancelAttack();
+                    return;
+                }
+
                 otherSword.CancelAttack();
                 hiltOwner.ApplyKnockback(blockKnockbackDistance);
                 hiltOwner.NotifyHiltReaction();
@@ -338,7 +351,6 @@ public class SwordAttack : MonoBehaviour
                 {
                     Debug.Log($"{hiltOwner.name} SUCCESSFULLY PARRIED {_owner.name}'s passive contact!");
                     GameManager.Instance.OnSuccessfulParry(_owner, hiltOwner);
-                    _owner.ApplyKnockback(blockKnockbackDistance);
                     return;
                 }
 
@@ -373,6 +385,16 @@ public class SwordAttack : MonoBehaviour
 
         GameManager.Instance.OnPlayerHit(_owner);
         Debug.Log($"{_owner.name} scored on {victim.name}");
+    }
+
+    public void SetParrySprite(bool parrying)
+    {
+        Debug.Log($"SetParrySprite: parrying={parrying}, swordSprite={swordSprite}, restSprite={restSprite}, parrySprite={parrySprite}");
+        if (swordSprite == null) return;
+        if (parrying && parrySprite != null)
+            swordSprite.sprite = parrySprite;
+        else if (!parrying && restSprite != null)
+            swordSprite.sprite = restSprite;
     }
 
     public void SetRightOfWayVisual(bool hasRightOfWay)

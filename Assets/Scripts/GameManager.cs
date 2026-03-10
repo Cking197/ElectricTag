@@ -9,7 +9,7 @@ using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
-    [Header("UI References")] 
+    [Header("UI References")]
     public GameObject Player1UI;
     public GameObject Player2UI;
     public TextMeshProUGUI countdownText;
@@ -17,6 +17,8 @@ public class GameManager : MonoBehaviour
 
     [Header("Score")] private TextMeshProUGUI _player1ScoreUI; // Player 1 score display
     private TextMeshProUGUI _player2ScoreUI; // Player 2 score display
+    [Tooltip("Points needed to win. Used when GameSession is unavailable (e.g. solo test mode). Set to 5 or 15.")]
+    [SerializeField] private int targetScore = 5;
 
     [Header("Card UI")] private Image _p1WarningIcon;
     private Image _p1YellowIcon;
@@ -44,7 +46,7 @@ public class GameManager : MonoBehaviour
     private List<PlayerController> _pendingHitAttackers = new List<PlayerController>();
     private Coroutine _hitResolutionRoutine;
     public float simultaneousHitWindow = 0.12f;
-    
+
     [FormerlySerializedAs("_audioSource")]
     [Header("Audio")]
     [SerializeField] private AudioSource audioSource;
@@ -95,6 +97,18 @@ public class GameManager : MonoBehaviour
     {
         if (Instance == null) Instance = this;
 
+        // If entering the game scene directly (e.g. solo test mode) without a
+        // GameSession carried over from the menu, create one so boutLength is
+        // always valid. The Inspector targetScore is used as the bout length.
+        if (GameSession.Instance == null)
+        {
+            var sessionGO = new GameObject("GameSession (auto)");
+            var session = sessionGO.AddComponent<GameSession>();
+            session.boutLength = targetScore;
+            DontDestroyOnLoad(sessionGO);
+            Debug.Log($"[GameManager] GameSession not found — created one with boutLength={targetScore}");
+        }
+
         // set score texts
         _player1ScoreUI = Player1UI.transform.Find("Score").GetComponent<TextMeshProUGUI>();
         _player2ScoreUI = Player2UI.transform.Find("Score").GetComponent<TextMeshProUGUI>();
@@ -116,7 +130,7 @@ public class GameManager : MonoBehaviour
         _p2RedIcon.enabled = false;
     }
 
-// Register player and start countdown when 2 players exist
+    // Register player and start countdown when 2 players exist
     public void RegisterPlayer(PlayerController player)
     {
         if (_registeredPlayers.Contains(player)) return;
@@ -133,14 +147,14 @@ public class GameManager : MonoBehaviour
             StartCountdown();
         }
     }
-    
+
     private void PlaySound(AudioClip clip)
     {
         if (audioSource != null && clip != null)
             audioSource.PlayOneShot(clip);
     }
 
-// Determines if players are allowed to move
+    // Determines if players are allowed to move
     public bool CanPlayersMove()
     {
         if (Time.time < _movementLockUntil)
@@ -154,7 +168,7 @@ public class GameManager : MonoBehaviour
         _movementLockUntil = Mathf.Max(_movementLockUntil, Time.time + seconds);
     }
 
-// Called when a player moves during countdown (potential false start)
+    // Called when a player moves during countdown (potential false start)
     public void OnEarlyMovement(PlayerController offender)
     {
         if (currentState != BoutState.Countdown || _falseStartTriggered)
@@ -173,14 +187,14 @@ public class GameManager : MonoBehaviour
         _falseStartRoutine = StartCoroutine(FalseStartRoutine());
     }
 
-// Handles false start sequence
+    // Handles false start sequence
     IEnumerator FalseStartRoutine()
     {
         currentState = BoutState.Resolving;
 
         countdownText.gameObject.SetActive(true);
         countdownText.text = "HALT";
-        
+
 
         PlayerController offender = _falseStartOffender;
         bool isLeft = offender.name == "Player1";
@@ -191,21 +205,21 @@ public class GameManager : MonoBehaviour
         switch (currentLevel)
         {
             case CardLevel.None:
-                PlaySound(haltClip); 
+                PlaySound(haltClip);
                 yield return new WaitForSeconds(0.6f);
                 _cardStates[offender] = CardLevel.Warning;
                 countdownText.text = $"WARNING FOR {side}";
                 UpdateCardUI(offender, CardLevel.Warning);
-                
+
                 break;
 
-            case CardLevel.Warning: 
+            case CardLevel.Warning:
                 PlaySound(haltClip);
                 yield return new WaitForSeconds(0.6f);
                 _cardStates[offender] = CardLevel.Yellow;
                 countdownText.text = $"YELLOW CARD ON {side}";
                 UpdateCardUI(offender, CardLevel.Yellow);
-               
+
                 break;
 
             case CardLevel.Yellow:
@@ -243,7 +257,7 @@ public class GameManager : MonoBehaviour
         StartCountdown();
     }
 
-// Starts the countdown routine
+    // Starts the countdown routine
     public void StartCountdown()
     {
         if (_countdownRoutine != null)
@@ -252,7 +266,7 @@ public class GameManager : MonoBehaviour
         _countdownRoutine = StartCoroutine(CountdownRoutine());
     }
 
-// Countdown display before fencing begins
+    // Countdown display before fencing begins
     IEnumerator CountdownRoutine()
     {
         currentState = BoutState.Settling;
@@ -325,7 +339,7 @@ public class GameManager : MonoBehaviour
                 HaltAndScoreRoutine(scorer, ScoreReason.Attack));
     }
 
-// Called when a player scores
+    // Called when a player scores
     public void OnPlayerHit(PlayerController attacker)
     {
         if (currentState != BoutState.Fencing || _falseStartTriggered || _haltRoutine != null)
@@ -338,7 +352,7 @@ public class GameManager : MonoBehaviour
             _hitResolutionRoutine = StartCoroutine(ResolveHitsAfterWindow());
     }
 
-// Called when a player successfully parries an attack
+    // Called when a player successfully parries an attack
     public void OnSuccessfulParry(PlayerController attacker, PlayerController parrier)
     {
         if (currentState != BoutState.Fencing || _falseStartTriggered || _haltRoutine != null)
@@ -347,23 +361,24 @@ public class GameManager : MonoBehaviour
         Debug.Log($"{parrier.name} parried {attacker.name} - stunning attacker");
 
         attacker.CancelAttack();
+        attacker.LockAttack(attacker.parryAttackLockSeconds);
         AssignRightOfWay(parrier);
     }
 
-// Handles halt, scoring, and reset after a touch
+    // Handles halt, scoring, and reset after a touch
     IEnumerator HaltAndScoreRoutine(
         PlayerController scorer,
         ScoreReason reason,
         PlayerController offender = null)
     {
-        
+
         // Stop countdown if it is still running
         if (_countdownRoutine != null)
         {
             StopCoroutine(_countdownRoutine);
             _countdownRoutine = null;
         }
-        
+
         currentState = BoutState.Resolving;
 
         if (countdownText != null)
@@ -372,7 +387,7 @@ public class GameManager : MonoBehaviour
             countdownText.text = "HALT";
             countdownText.color = Color.red;
         }
-        
+
         PlaySound(haltClip);
 
         yield return new WaitForSeconds(0.9f);
@@ -388,7 +403,7 @@ public class GameManager : MonoBehaviour
         _player1ScoreUI.text = _player1Score.ToString();
         _player2ScoreUI.text = _player2Score.ToString();
 
-        int targetScore = GameSession.Instance != null ? GameSession.Instance.boutLength : 5;
+        int targetScore = GameSession.Instance.boutLength;
 
         if (_player1Score >= targetScore)
         {
@@ -446,7 +461,7 @@ public class GameManager : MonoBehaviour
         StartCountdown();
     }
 
-// Resets all players to spawn positions
+    // Resets all players to spawn positions
     void ResetAllPlayers()
     {
         LockMovement(resetMovementLockSeconds);
@@ -608,7 +623,7 @@ public class GameManager : MonoBehaviour
         red.enabled = level >= CardLevel.Red;
         Debug.Log("Updating UI for: " + player.name);
     }
-    
+
     private IEnumerator VictoryRoutine(PlayerController winner)
     {
         currentState = BoutState.Resolving;
