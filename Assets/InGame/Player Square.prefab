@@ -172,6 +172,10 @@ MonoBehaviour:
   maxSwordAngleDegrees: 15
   parryAngleToleranceDegrees: 7.5
   reactionDuration: 0.5
+  dashLingerSeconds: 0.15
+  walkSprite1: {fileID: 5826479529469629657, guid: 64d2134b32862ca46908214fc0cb1633, type: 3}
+  walkSprite2: {fileID: -7133230849722980620, guid: 647241d98ef434f48957222eb09b457d, type: 3}
+  walkFrameInterval: 65
 --- !u!212 &5166759941191950690
 SpriteRenderer:
   serializedVersion: 2
@@ -608,6 +612,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SwordAttack
   swordSprite: {fileID: 3482920474670505943}
+  restSprite: {fileID: 5826479529469629657, guid: d2ccf05d465158446a811f455617bef0, type: 3}
+  parrySprite: {fileID: 6079464320512535942, guid: 7e526e39ccfe09f40a4c3640d57c3aa2, type: 3}
   restLocalPosition: {x: 0.4, y: 0.1}
   pivotOffset: {x: -1, y: 0}
   armLength: 1.7

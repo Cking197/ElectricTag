@@ -5,8 +5,7 @@ using System.Collections;
 
 public class PlayerController : MonoBehaviour
 {
-    [Header("Input")]
-    public string moveActionName = "Move";
+    [Header("Input")] public string moveActionName = "Move";
     public string fastStepActionName = "FastStepToggle";
     public string parryActionName = "Parry";
     public string swordAngleActionName = "SwordAngle";
@@ -16,15 +15,13 @@ public class PlayerController : MonoBehaviour
     private InputAction _parryAction;
     private InputAction _swordAngleAction;
 
-    [Header("Spawn")]
-    public float leftSpawnX = -2.4f;
+    [Header("Spawn")] public float leftSpawnX = -2.4f;
     public float rightSpawnX = 2.4f;
     public float spawnY = 1f;
     private Vector3 _spawnPosition;
     private int _facingDirection;
 
-    [Header("Movement")]
-    public float stepDistance = 0.16f;
+    [Header("Movement")] public float stepDistance = 0.16f;
     public float fastStepDistance = 0.24f;
     public float dashDistance = 1f;
     public float stepCooldownSeconds = 0.12f;
@@ -35,12 +32,11 @@ public class PlayerController : MonoBehaviour
     public float deadzone = 0.2f;
     public float moderateSpeed = 1.4f;
     public float fastSpeed = 2.2f;
-    public float dashSpeed = 6f;            // Minimum speed floor for dash movement
+    public float dashSpeed = 6f; // Minimum speed floor for dash movement
     public float knockbackDuration = 0.15f; // Duration of knockback travel — increase to slow it down
     public float minPlayerSeparation = 0.5f; // Tune to half a player width in world units
 
-    [Header("Combat State")]
-    private bool _isParrying;
+    [Header("Combat State")] private bool _isParrying;
     private float _parryActiveUntil;
     public float parryWindowSeconds = 0.2f;
     public float parryCooldownSeconds = 0.4f;
@@ -50,8 +46,12 @@ public class PlayerController : MonoBehaviour
     private float _parryAngle = 0f;
     public float ParryAngle => _parryAngle;
 
-    [Header("Sword Angling")]
-    public float maxSwordAngleDegrees = 37.5f;
+    [Tooltip("How long the attacker is locked out of attacking after being parried.")]
+    public float parryAttackLockSeconds = 0.5f;
+
+    private float _attackLockedUntil;
+
+    [Header("Sword Angling")] public float maxSwordAngleDegrees = 37.5f;
     private float _currentSwordAngle = 0f;
     public float parryAngleToleranceDegrees = 25f;
 
@@ -65,23 +65,20 @@ public class PlayerController : MonoBehaviour
     private float _nextDashTime;
     private bool _dashHeld;
 
-    [HideInInspector]
-    public bool IsAttacking => _sword != null && _sword.IsAttacking;
+    [HideInInspector] public bool IsAttacking => _sword != null && _sword.IsAttacking;
     public bool IsParrying => _isParrying;
 
     private Rigidbody2D _rb;
     private SwordAttack _sword;
 
-    // Animator state name constants — match these exactly in the Animator Controller
-    private static readonly int StateIdle = Animator.StringToHash("Idle");
-    private static readonly int StateWalk = Animator.StringToHash("Walk");
-    private static readonly int StateAttack = Animator.StringToHash("Attack");
-    private static readonly int StateLunge = Animator.StringToHash("Lunge");
-    private static readonly int StateBackdash = Animator.StringToHash("Backdash");
-    private static readonly int StateReact = Animator.StringToHash("React");
-
-    [Header("Animation")]
+    [Header("Animation")] private static readonly int ParamIsMoving = Animator.StringToHash("isMoving");
+    private static readonly int TriggerAttack = Animator.StringToHash("Attack");
+    private static readonly int TriggerLunge = Animator.StringToHash("Lunge");
+    private static readonly int TriggerBackdash = Animator.StringToHash("Backdash");
+    private static readonly int TriggerReact = Animator.StringToHash("React");
     public float reactionDuration = 0.2f;
+    public float dashLingerSeconds = 0.15f;
+    private float _dashLingerUntil;
 
     private int _currentAnimState = -1;
     private bool _isReacting;
@@ -146,6 +143,7 @@ public class PlayerController : MonoBehaviour
         {
             _isParrying = false;
             UpdateVisualState();
+            _sword?.SetParrySprite(false);
             Debug.Log($"Parry from {gameObject.name} stopped");
         }
 
@@ -165,7 +163,7 @@ public class PlayerController : MonoBehaviour
             }
             else
             {
-                UpdateAnimator(0f);
+                UpdateAnimator();
                 return;
             }
         }
@@ -173,7 +171,7 @@ public class PlayerController : MonoBehaviour
         if (gameManager != null && !gameManager.CanPlayersMove())
         {
             _isStepping = false;
-            UpdateAnimator(0f);
+            UpdateAnimator();
             return;
         }
 
@@ -185,14 +183,12 @@ public class PlayerController : MonoBehaviour
 
         TryHandleDash(absAxis, axis);
 
-        if (UpdateStepMovement())
-        {
-            float animSpeed = (_isLunging || _isBackdashing) ? 0f : ((_stepTarget.x - transform.position.x) * _facingDirection >= 0f ? absAxis : -absAxis);
-            UpdateAnimator(animSpeed);
-            return;
-        }
+        bool stepped = UpdateStepMovement();
 
-        UpdateAnimator(0f);
+        UpdateAnimator();
+
+        if (stepped)
+            return;
 
         if (Time.time < _nextStepTime)
             return;
@@ -218,16 +214,19 @@ public class PlayerController : MonoBehaviour
     }
 
     // Called every frame — highest priority wins, falls through to lower
-    private void UpdateAnimator(float speed)
+    private void UpdateAnimator()
     {
         if (_animator == null) return;
 
-        if (IsAttacking) { PlayAnimState(StateAttack); return; }
-        if (_isReacting) { PlayAnimState(StateReact); return; }
-        if (_isLunging) { PlayAnimState(StateLunge); return; }
-        if (_isBackdashing) { PlayAnimState(StateBackdash); return; }
-        if (Mathf.Abs(speed) > 0.1f) { PlayAnimState(StateWalk); return; }
-        PlayAnimState(StateIdle);
+        bool moving = false;
+
+        if (_isStepping)
+        {
+            float dist = Mathf.Abs(_stepTarget.x - transform.position.x);
+            moving = dist > 0.01f;
+        }
+
+        _animator.SetBool(ParamIsMoving, moving);
     }
 
     // Called by SwordAttack at the end of ThrustRoutine so the lunge clip resets
@@ -259,6 +258,11 @@ public class PlayerController : MonoBehaviour
             bool isForward = (dashDirection * _facingDirection) > 0f;
             _isLunging = isForward;
             _isBackdashing = !isForward;
+
+            if (isForward)
+                _animator.SetTrigger(TriggerLunge);
+            else
+                _animator.SetTrigger(TriggerBackdash);
 
             NotifyMovementDirection(dashDirection);
             if (GameManager.Instance != null &&
@@ -294,8 +298,6 @@ public class PlayerController : MonoBehaviour
         {
             transform.position = _stepTarget;
             _isStepping = false;
-            _isLunging = false;
-            _isBackdashing = false;
         }
 
         return true;
@@ -308,6 +310,7 @@ public class PlayerController : MonoBehaviour
         {
             if (p != this) return p;
         }
+
         return null;
     }
 
@@ -372,11 +375,12 @@ public class PlayerController : MonoBehaviour
         if (!context.performed || _sword == null)
             return;
 
-        if (_isStunned || _isParrying)
+        if (_isStunned || _isParrying || Time.time < _attackLockedUntil)
             return;
 
         Debug.Log($"Attack fired from {gameObject.name}");
         _sword.StartAttack();
+        _animator.SetTrigger(TriggerAttack);
         GameManager.Instance.OnOffensiveAction(this);
     }
 
@@ -397,6 +401,7 @@ public class PlayerController : MonoBehaviour
         _parryActiveUntil = Time.time + parryWindowSeconds;
         _nextParryTime = Time.time + parryCooldownSeconds;
         _parryAngle = _currentSwordAngle;
+        _sword?.SetParrySprite(true);
         UpdateVisualState();
     }
 
@@ -411,8 +416,15 @@ public class PlayerController : MonoBehaviour
     {
         float angleDifference = Mathf.Abs(Mathf.DeltaAngle(_parryAngle, attackAngle));
         bool matches = angleDifference <= parryAngleToleranceDegrees;
-        Debug.Log($"{gameObject.name} parry check: parry={_parryAngle}°, attack={attackAngle}°, diff={angleDifference}°, matches={matches}");
+        Debug.Log(
+            $"{gameObject.name} parry check: parry={_parryAngle}°, attack={attackAngle}°, diff={angleDifference}°, matches={matches}");
         return matches;
+    }
+
+    public void LockAttack(float duration)
+    {
+        _attackLockedUntil = Mathf.Max(_attackLockedUntil, Time.time + duration);
+        Debug.Log($"{gameObject.name} attack locked for {duration}s");
     }
 
     public void ApplyStun(float duration)
@@ -480,6 +492,8 @@ public class PlayerController : MonoBehaviour
 
         _isStunned = false;
         _isParrying = false;
+        _attackLockedUntil = 0f;
+        _sword?.SetParrySprite(false);
         UpdateVisualState();
 
         if (_sword != null)
@@ -490,7 +504,7 @@ public class PlayerController : MonoBehaviour
         _isReacting = false;
         _currentAnimState = -1;
         if (_animator != null)
-            _animator.Play(StateIdle);
+            _animator.Rebind();
     }
 
     public void NotifyHiltReaction()
@@ -502,11 +516,8 @@ public class PlayerController : MonoBehaviour
 
     private IEnumerator ReactionRoutine()
     {
-        _isReacting = true;
-        _currentAnimState = -1;
+        _animator.SetTrigger(TriggerReact);
         yield return new WaitForSeconds(reactionDuration);
-        _isReacting = false;
-        _currentAnimState = -1;
     }
 
     public void NotifyRightOfWayChanged(bool hasRoW)
