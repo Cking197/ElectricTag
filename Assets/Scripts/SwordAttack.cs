@@ -87,7 +87,6 @@ public class SwordAttack : MonoBehaviour
         // PlayerController.Awake runs before SwordAttack.Start so this is safe
         _facingDirection = _owner != null ? _owner.FacingDirection : 1;
         ApplyPivotPosition(_currentAngle, 0f);
-        Debug.Log($"{_owner?.name} sword Start: facingDir={_facingDirection}, cachedZ={_cachedZ}");
     }
 
     // Called every frame by PlayerController via SetAngle — positions sword around pivot
@@ -297,9 +296,6 @@ public class SwordAttack : MonoBehaviour
 
             SwordAttack otherSword = other.GetComponentInParent<SwordAttack>();
 
-            Debug.Log(
-                $"Hilt contact: _owner={_owner.name}, hiltOwner={hiltOwner.name}, _isAttacking={_isAttacking}, otherSword={otherSword.name}, otherSword._isAttacking={otherSword.IsAttacking}");
-
             if (_isAttacking && (otherSword == null || !otherSword._isAttacking))
             {
                 if (hiltOwner.IsInParryWindow() && hiltOwner.DoesParryMatchAttack(_attackAngle))
@@ -344,7 +340,6 @@ public class SwordAttack : MonoBehaviour
                 hiltOwner.ApplyKnockback(blockKnockbackDistance);
                 hiltOwner.NotifyHiltReaction();
                 Debug.Log($"Both players attacked and were blocked by each others' hilts!");
-                // Both knocked back, RoW cleared via OnRetreat in ApplyKnockback
             }
             else
             {
@@ -390,8 +385,6 @@ public class SwordAttack : MonoBehaviour
 
     public void SetParrySprite(bool parrying)
     {
-        Debug.Log(
-            $"SetParrySprite: parrying={parrying}, swordSprite={swordSprite}, restSprite={restSprite}, parrySprite={parrySprite}");
         if (swordSprite == null) return;
         if (parrying && parrySprite != null)
             swordSprite.sprite = parrySprite;

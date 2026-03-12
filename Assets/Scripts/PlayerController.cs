@@ -130,11 +130,6 @@ public class PlayerController : MonoBehaviour
     {
         GameManager gameManager = GameManager.Instance;
 
-        if (_isParrying)
-        {
-            Debug.Log($"{gameObject.name} is parrying, time: {Time.time}, expires at: {_parryActiveUntil}");
-        }
-
         if (_isParrying && Time.time >= _parryActiveUntil)
         {
             _isParrying = false;
@@ -154,8 +149,6 @@ public class PlayerController : MonoBehaviour
 
                 if (_sword != null)
                     _sword.SetHitboxEnabled(true);
-
-                Debug.Log($"{gameObject.name} stun ended");
             }
             else
             {
