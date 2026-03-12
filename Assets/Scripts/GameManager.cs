@@ -9,16 +9,17 @@ using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
-    [Header("UI References")]
-    public GameObject Player1UI;
+    [Header("UI References")] public GameObject Player1UI;
     public GameObject Player2UI;
     public TextMeshProUGUI countdownText;
     public static GameManager Instance; // Singleton reference
 
     [Header("Score")] private TextMeshProUGUI _player1ScoreUI; // Player 1 score display
     private TextMeshProUGUI _player2ScoreUI; // Player 2 score display
+
     [Tooltip("Points needed to win. Used when GameSession is unavailable (e.g. solo test mode). Set to 5 or 15.")]
-    [SerializeField] private int targetScore = 5;
+    [SerializeField]
+    private int targetScore = 5;
 
     [Header("Card UI")] private Image _p1WarningIcon;
     private Image _p1YellowIcon;
@@ -47,9 +48,9 @@ public class GameManager : MonoBehaviour
     private Coroutine _hitResolutionRoutine;
     public float simultaneousHitWindow = 0.12f;
 
-    [FormerlySerializedAs("_audioSource")]
-    [Header("Audio")]
-    [SerializeField] private AudioSource audioSource;
+    [FormerlySerializedAs("_audioSource")] [Header("Audio")] [SerializeField]
+    private AudioSource audioSource;
+
     [SerializeField] private AudioClip enGardeClip;
     [SerializeField] private AudioClip readyClip;
     [SerializeField] private AudioClip fenceClip;
@@ -371,7 +372,6 @@ public class GameManager : MonoBehaviour
         ScoreReason reason,
         PlayerController offender = null)
     {
-
         // Stop countdown if it is still running
         if (_countdownRoutine != null)
         {
@@ -639,5 +639,4 @@ public class GameManager : MonoBehaviour
 
         SceneManager.LoadScene(GameSession.Instance.startSceneName);
     }
-
 }

@@ -5,18 +5,15 @@ using UnityEngine.Serialization;
 
 public class SwordAttack : MonoBehaviour
 {
-    [FormerlySerializedAs("_swordSprite")]
-    [SerializeField]
+    [FormerlySerializedAs("_swordSprite")] [SerializeField]
     private SpriteRenderer swordSprite;
 
     private Color _defaultColor = Color.black;
 
-    [Header("Parry Sprites")]
-    public Sprite restSprite;
+    [Header("Parry Sprites")] public Sprite restSprite;
     public Sprite parrySprite;
 
-    [Header("Positions")]
-    public Vector2
+    [Header("Positions")] public Vector2
         restLocalPosition = new Vector2(0.6f, 0f); // Sword handle position relative to player when angle is 0
 
     [Header("Pivot")]
@@ -37,8 +34,11 @@ public class SwordAttack : MonoBehaviour
     public float AttackAngle => _attackAngle;
 
     [Header("Blade Block")] public float blockKnockbackDistance = 0.4f;
-    [Tooltip("Multiplier applied to attacker's knockback when they hit a parrying defender (0 = no pushback, 1 = full).")]
-    [Range(0f, 1f)] public float parryAttackerKnockbackMultiplier = 0.25f;
+
+    [Tooltip(
+        "Multiplier applied to attacker's knockback when they hit a parrying defender (0 = no pushback, 1 = full).")]
+    [Range(0f, 1f)]
+    public float parryAttackerKnockbackMultiplier = 0.25f;
 
     private bool _isAttacking;
     private static float _nextBlockTime;
@@ -50,7 +50,7 @@ public class SwordAttack : MonoBehaviour
 
     public bool IsAttacking => _isAttacking;
     [SerializeField] private AudioSource audioSource;
-    [Header("Audio")][SerializeField] private AudioClip[] clashClips;
+    [Header("Audio")] [SerializeField] private AudioClip[] clashClips;
     private float _nextClashTime;
     [SerializeField] private float clashCooldown = 0.05f;
     [SerializeField] private AudioClip[] thrustClips;
@@ -297,7 +297,8 @@ public class SwordAttack : MonoBehaviour
 
             SwordAttack otherSword = other.GetComponentInParent<SwordAttack>();
 
-            Debug.Log($"Hilt contact: _owner={_owner.name}, hiltOwner={hiltOwner.name}, _isAttacking={_isAttacking}, otherSword={otherSword.name}, otherSword._isAttacking={otherSword.IsAttacking}");
+            Debug.Log(
+                $"Hilt contact: _owner={_owner.name}, hiltOwner={hiltOwner.name}, _isAttacking={_isAttacking}, otherSword={otherSword.name}, otherSword._isAttacking={otherSword.IsAttacking}");
 
             if (_isAttacking && (otherSword == null || !otherSword._isAttacking))
             {
@@ -389,7 +390,8 @@ public class SwordAttack : MonoBehaviour
 
     public void SetParrySprite(bool parrying)
     {
-        Debug.Log($"SetParrySprite: parrying={parrying}, swordSprite={swordSprite}, restSprite={restSprite}, parrySprite={parrySprite}");
+        Debug.Log(
+            $"SetParrySprite: parrying={parrying}, swordSprite={swordSprite}, restSprite={restSprite}, parrySprite={parrySprite}");
         if (swordSprite == null) return;
         if (parrying && parrySprite != null)
             swordSprite.sprite = parrySprite;
