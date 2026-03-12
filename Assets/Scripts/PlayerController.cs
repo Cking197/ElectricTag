@@ -77,13 +77,9 @@ public class PlayerController : MonoBehaviour
     private static readonly int TriggerBackdash = Animator.StringToHash("Backdash");
     private static readonly int TriggerReact = Animator.StringToHash("React");
     public float reactionDuration = 0.2f;
-    public float dashLingerSeconds = 0.15f;
     private float _dashLingerUntil;
 
     private int _currentAnimState = -1;
-    private bool _isReacting;
-    private bool _isLunging;
-    private bool _isBackdashing;
 
     private Animator _animator;
 
@@ -256,8 +252,6 @@ public class PlayerController : MonoBehaviour
             _dashHeld = true;
 
             bool isForward = (dashDirection * _facingDirection) > 0f;
-            _isLunging = isForward;
-            _isBackdashing = !isForward;
 
             if (isForward)
                 _animator.SetTrigger(TriggerLunge);
@@ -499,9 +493,6 @@ public class PlayerController : MonoBehaviour
         if (_sword != null)
             _sword.SetHitboxEnabled(true);
 
-        _isLunging = false;
-        _isBackdashing = false;
-        _isReacting = false;
         _currentAnimState = -1;
         if (_animator != null)
             _animator.Rebind();
